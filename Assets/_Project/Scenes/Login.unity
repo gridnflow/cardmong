@@ -285,7 +285,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 200000}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0cd44c1031e13a943bb63189768255d8, type: 3}
+  m_Script: {fileID: 11500000, guid: 0cd44c1031e13a943bb63640046fad76, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_IgnoreReversedGraphics: 1
@@ -302,7 +302,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 200000}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dc42784cf044b6048be8a9c383a2d6a4, type: 3}
+  m_Script: {fileID: 11500000, guid: dc42784cf147c0c48a680349fa168899, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_UiScaleMode: 1
@@ -369,8 +369,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
 
-  emailInput: {fileID: 320010}
-  passwordInput: {fileID: 330010}
+  emailInput: {fileID: 320003}
+  passwordInput: {fileID: 330003}
 
 
 
@@ -428,7 +428,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 310000}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f4688fdb7655be840981ef216a7d8bfd, type: 3}
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
@@ -513,7 +513,6 @@ GameObject:
   - component: {fileID: 320001}
   - component: {fileID: 320002}
   - component: {fileID: 320003}
-  - component: {fileID: 320010}
   m_Layer: 5
   m_Name: EmailField
   m_TagString: Untagged
@@ -574,24 +573,6 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &320010
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 320000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d3b7cd80a4cd74d428c4d62aad0f8e10, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_ContentType: 0
-  m_inputType: 0
-  m_keyboardType: 0
-  m_characterValidation: 0
-  m_CharacterLimit: 100
-  m_text: 
 --- !u!1 &330000
 GameObject:
   m_ObjectHideFlags: 0
@@ -603,7 +584,6 @@ GameObject:
   - component: {fileID: 330001}
   - component: {fileID: 330002}
   - component: {fileID: 330003}
-  - component: {fileID: 330010}
   m_Layer: 5
   m_Name: PasswordField
   m_TagString: Untagged
@@ -664,24 +644,6 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &330010
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 330000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d3b7cd80a4cd74d428c4d62aad0f8e10, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_ContentType: 2
-  m_inputType: 2
-  m_keyboardType: 0
-  m_characterValidation: 0
-  m_CharacterLimit: 50
-  m_text: 
 --- !u!1 &340000
 GameObject:
   m_ObjectHideFlags: 0
@@ -763,7 +725,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 340000}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f2485, type: 3}
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Navigation:
@@ -879,7 +841,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 350000}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f2485, type: 3}
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Navigation:
@@ -962,6 +924,21 @@ MonoBehaviour:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 400000}
   backButton: {fileID: 410010}
+--- !u!114 &400003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 400000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b3c8d1e2f4a5607890abcdef12345678, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  emailInput: {fileID: 420003}
+  nicknameInput: {fileID: 430003}
+  passwordInput: {fileID: 440003}
 --- !u!1 &410000
 GameObject:
   m_ObjectHideFlags: 0
@@ -1043,7 +1020,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 410000}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f2485, type: 3}
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Navigation:
@@ -1089,7 +1066,6 @@ GameObject:
   - component: {fileID: 420001}
   - component: {fileID: 420002}
   - component: {fileID: 420003}
-  - component: {fileID: 420010}
   m_Layer: 5
   m_Name: Reg_EmailField
   m_TagString: Untagged
@@ -1150,24 +1126,6 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &420010
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 420000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d3b7cd80a4cd74d428c4d62aad0f8e10, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_ContentType: 0
-  m_inputType: 0
-  m_keyboardType: 0
-  m_characterValidation: 0
-  m_CharacterLimit: 100
-  m_text: 
 --- !u!1 &430000
 GameObject:
   m_ObjectHideFlags: 0
@@ -1179,7 +1137,6 @@ GameObject:
   - component: {fileID: 430001}
   - component: {fileID: 430002}
   - component: {fileID: 430003}
-  - component: {fileID: 430010}
   m_Layer: 5
   m_Name: Reg_NicknameField
   m_TagString: Untagged
@@ -1240,24 +1197,6 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &430010
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 430000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d3b7cd80a4cd74d428c4d62aad0f8e10, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_ContentType: 0
-  m_inputType: 0
-  m_keyboardType: 0
-  m_characterValidation: 0
-  m_CharacterLimit: 30
-  m_text: 
 --- !u!1 &440000
 GameObject:
   m_ObjectHideFlags: 0
@@ -1269,7 +1208,6 @@ GameObject:
   - component: {fileID: 440001}
   - component: {fileID: 440002}
   - component: {fileID: 440003}
-  - component: {fileID: 440010}
   m_Layer: 5
   m_Name: Reg_PasswordField
   m_TagString: Untagged
@@ -1330,24 +1268,6 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &440010
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 440000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d3b7cd80a4cd74d428c4d62aad0f8e10, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_ContentType: 2
-  m_inputType: 2
-  m_keyboardType: 0
-  m_characterValidation: 0
-  m_CharacterLimit: 50
-  m_text: 
 --- !u!1 &450000
 GameObject:
   m_ObjectHideFlags: 0
@@ -1429,7 +1349,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 450000}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f2485, type: 3}
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Navigation:
