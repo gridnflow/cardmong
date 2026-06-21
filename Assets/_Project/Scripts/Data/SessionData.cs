@@ -1,44 +1,17 @@
 namespace Cardmong.Data
 {
+    /// <summary>
+    /// 로그인을 제거한 뒤 게임 실행에 필요한 최소 세션 정보만 보관한다.
+    /// (닉네임 표시 · 선택한 덱 ID)
+    /// </summary>
     public class SessionData
     {
         public static SessionData Instance { get; } = new SessionData();
 
-        public string AccessToken    { get; private set; }
-        public string RefreshToken   { get; private set; }
-        public long   UserId         { get; private set; }
-        public string Nickname       { get; private set; }
+        // 기본 폰트(LiberationSans SDF)에 한글 글리프가 없어 ASCII 기본값 사용
+        public string Nickname       { get; set; } = "Player";
         public int    SelectedDeckId { get; set; } = 0;
 
-        private SessionData()
-        {
-            AccessToken  = LocalStorage.Load("access_token");
-            RefreshToken = LocalStorage.Load("refresh_token");
-        }
-
-        public void SetSession(string accessToken, string refreshToken,
-                               long userId, string nickname)
-        {
-            AccessToken  = accessToken;
-            RefreshToken = refreshToken;
-            UserId       = userId;
-            Nickname     = nickname;
-
-            LocalStorage.Save("access_token",  accessToken);
-            LocalStorage.Save("refresh_token", refreshToken);
-        }
-
-        public bool IsLoggedIn() => !string.IsNullOrEmpty(AccessToken);
-
-        public void Clear()
-        {
-            AccessToken  = null;
-            RefreshToken = null;
-            UserId       = 0;
-            Nickname     = null;
-
-            LocalStorage.Delete("access_token");
-            LocalStorage.Delete("refresh_token");
-        }
+        private SessionData() { }
     }
 }
