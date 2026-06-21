@@ -36,3 +36,9 @@ Thumbs.db
 # 크래시 리포트
 sysinfo.txt
 crashlytics-build.properties
+
+# Spring Boot / Gradle
+cardmong-server/.gradle/
+cardmong-server/build/
+cardmong-server/out/
+*.class
