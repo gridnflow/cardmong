@@ -9,9 +9,9 @@ namespace Cardmong.Game
 {
     /// <summary>
     /// 오프라인 카드 배틀 슬라이스(세로 모바일).
-    /// 하단의 카드를 누르면 그 카드 안의 몬스터가 튀어나와 적에게 날아가 공격하고
-    /// 다시 카드로 돌아가며, 카드는 쿨다운 후 재사용된다. 적을 처치하면 더 강한
-    /// 적이 등장한다. 모든 UI는 코드로 생성하고 입력은 New Input System으로 처리한다.
+    /// 하단 카드를 누르면 그 안의 몬스터가 튀어나와 적을 공격하고, 적도 주기적으로
+    /// 플레이어를 공격한다. 플레이어 HP가 0이 되면 게임오버 → 탭으로 재시작.
+    /// 모든 UI는 코드로 생성하고 입력은 New Input System으로 처리한다.
     /// </summary>
     public class TapBattleGame : MonoBehaviour
     {
@@ -54,23 +54,41 @@ namespace Cardmong.Game
         };
 
         private const int HandSize = 4;
-        private const float MonsterBase = 360f; // 얼굴 비율 기준 크기
+        private const float MonsterBase = 360f;
+        private const int PlayerMaxHp = 100;
 
         private Sprite _box;
         private RectTransform _canvasRt;
+
         private Image _enemy;
         private RectTransform _enemyRt;
         private TMP_Text _enemyLabel;
         private Image _hpFill;
         private TMP_Text _hpText;
         private TMP_Text _killText;
+        private Vector2 _enemyBasePos;
+
+        private Image _playerHpFill;
+        private TMP_Text _playerHpText;
+        private RectTransform _playerHpRt;
+        private Vector2 _playerHpBasePos;
+
+        private GameObject _gameOverPanel;
+        private TMP_Text _gameOverInfo;
+
         private readonly List<Card> _cards = new();
 
         private int _kills;
         private int _maxHp;
         private int _hp;
-        private bool _busy;
+        private int _playerHp;
+        private bool _busy;          // 적 등장/소멸 중
+        private bool _gameOver;
+        private bool _enemyAttacking;
         private float _enemyHit;
+        private float _playerHurt;
+        private float _enemyAtkTimer;
+        private float _enemyAtkInterval;
         private Color _enemyColor;
 
         private void Start()
@@ -83,11 +101,22 @@ namespace Cardmong.Game
                                  new Vector2(0.5f, 0.5f), 100f);
 
             BuildUI();
+            _playerHp = PlayerMaxHp;
+            UpdatePlayerHpText();
             NewEnemy(instant: true);
         }
 
         private void Update()
         {
+            var p = Pointer.current;
+            bool pressed = p != null && p.press.wasPressedThisFrame;
+
+            if (_gameOver)
+            {
+                if (pressed) Restart();
+                return;
+            }
+
             // 카드 쿨다운
             foreach (var c in _cards)
             {
@@ -98,7 +127,7 @@ namespace Cardmong.Game
                 }
             }
 
-            // 적 타격 반동
+            // 적 타격 반동(스케일)
             if (_enemyHit > 0f)
             {
                 _enemyHit -= Time.deltaTime;
@@ -106,13 +135,38 @@ namespace Cardmong.Game
                 _enemyRt.localScale = Vector3.one * (1f + 0.16f * k);
             }
 
+            // 플레이어 피격 흔들림
+            if (_playerHurt > 0f)
+            {
+                _playerHurt -= Time.deltaTime;
+                float k = Mathf.Clamp01(_playerHurt / 0.3f);
+                float off = Mathf.Sin(_playerHurt * 60f) * 14f * k;
+                _playerHpRt.anchoredPosition = _playerHpBasePos + new Vector2(off, 0);
+            }
+            else
+            {
+                _playerHpRt.anchoredPosition = _playerHpBasePos;
+            }
+
             // HP 바 부드럽게
-            float target = _maxHp > 0 ? (float)_hp / _maxHp : 0f;
-            _hpFill.fillAmount = Mathf.MoveTowards(_hpFill.fillAmount, target, 2.5f * Time.deltaTime);
+            _hpFill.fillAmount = Mathf.MoveTowards(_hpFill.fillAmount,
+                _maxHp > 0 ? (float)_hp / _maxHp : 0f, 2.5f * Time.deltaTime);
+            _playerHpFill.fillAmount = Mathf.MoveTowards(_playerHpFill.fillAmount,
+                (float)_playerHp / PlayerMaxHp, 2.5f * Time.deltaTime);
+
+            // 적의 공격 타이머
+            if (!_busy && !_enemyAttacking)
+            {
+                _enemyAtkTimer -= Time.deltaTime;
+                if (_enemyAtkTimer <= 0f)
+                {
+                    _enemyAtkTimer = _enemyAtkInterval;
+                    StartCoroutine(EnemyAttack());
+                }
+            }
 
             // 입력: 카드 탭
-            var p = Pointer.current;
-            if (!_busy && p != null && p.press.wasPressedThisFrame)
+            if (!_busy && pressed)
             {
                 Vector2 sp = p.position.ReadValue();
                 foreach (var c in _cards)
@@ -126,14 +180,13 @@ namespace Cardmong.Game
             }
         }
 
-        // ------------------------------------------------------------- gameplay
+        // ------------------------------------------------------- player attacks
 
         private IEnumerator PlayCard(Card c)
         {
             c.Cd = c.CdTotal;
             c.CdOverlay.fillAmount = 1f;
 
-            // 카드에서 몬스터가 튀어나옴
             var token = NewImage("Token", _canvasRt, c.Color);
             AddFace(token.rectTransform, 120f / MonsterBase);
             var trt = token.rectTransform;
@@ -153,9 +206,8 @@ namespace Cardmong.Game
                 yield return null;
             }
 
-            DealDamage(c.Atk);
+            DamageEnemy(c.Atk);
 
-            // 카드로 복귀
             t = 0f;
             const float durBack = 0.18f;
             while (t < durBack)
@@ -169,7 +221,7 @@ namespace Cardmong.Game
             Destroy(token.gameObject);
         }
 
-        private void DealDamage(int atk)
+        private void DamageEnemy(int atk)
         {
             if (_busy) return;
 
@@ -179,11 +231,71 @@ namespace Cardmong.Game
             _hp = Mathf.Max(0, _hp - dmg);
             UpdateHpText();
             _enemyHit = 0.14f;
-            SpawnDamage(dmg, crit, CanvasPoint(_enemyRt) + new Vector2(0, 130));
+            FloatNumber((crit ? "CRIT " : "") + dmg, crit ? 80 : 56,
+                        crit ? new Color(1f, 0.55f, 0.15f) : Color.white,
+                        CanvasPoint(_enemyRt) + new Vector2(0, 130));
 
             if (_hp <= 0)
                 StartCoroutine(KillAndRespawn());
         }
+
+        // ------------------------------------------------------- enemy attacks
+
+        private IEnumerator EnemyAttack()
+        {
+            if (_busy || _gameOver) yield break;
+            _enemyAttacking = true;
+
+            Vector2 baseP = _enemyBasePos;
+            Vector2 up = baseP + new Vector2(0, 40);
+            Vector2 down = baseP + new Vector2(0, -240);
+
+            // 준비 동작(살짝 위로)
+            float t = 0f;
+            while (t < 0.14f)
+            {
+                t += Time.deltaTime;
+                _enemyRt.anchoredPosition = Vector2.Lerp(baseP, up, t / 0.14f);
+                yield return null;
+            }
+            // 돌진(아래로)
+            t = 0f;
+            while (t < 0.13f)
+            {
+                t += Time.deltaTime;
+                _enemyRt.anchoredPosition = Vector2.LerpUnclamped(up, down, EaseOutCubic(t / 0.13f));
+                yield return null;
+            }
+
+            if (!_gameOver && !_busy)
+                DamagePlayer();
+
+            // 복귀
+            t = 0f;
+            while (t < 0.18f)
+            {
+                t += Time.deltaTime;
+                _enemyRt.anchoredPosition = Vector2.Lerp(down, baseP, t / 0.18f);
+                yield return null;
+            }
+            _enemyRt.anchoredPosition = baseP;
+            _enemyAttacking = false;
+        }
+
+        private void DamagePlayer()
+        {
+            int dmg = Mathf.Max(1, 8 + _kills * 3 + Random.Range(-2, 3));
+            _playerHp = Mathf.Max(0, _playerHp - dmg);
+            UpdatePlayerHpText();
+            _playerHurt = 0.3f;
+            FloatNumber("-" + dmg, 60, new Color(1f, 0.45f, 0.45f),
+                        _playerHpBasePos + new Vector2(0, 80));
+
+            if (_playerHp <= 0)
+                GameOver();
+        }
+
+        // ------------------------------------------------------- enemy lifecycle
 
         private void NewEnemy(bool instant)
         {
@@ -194,6 +306,10 @@ namespace Cardmong.Game
             _enemyLabel.text = $"ENEMY  Lv.{_kills + 1}";
             _hpFill.fillAmount = 1f;
             UpdateHpText();
+
+            _enemyAtkInterval = Mathf.Max(1.2f, 3.0f - _kills * 0.15f);
+            _enemyAtkTimer = _enemyAtkInterval + 0.6f; // 등장 직후 약간의 유예
+            _enemyRt.anchoredPosition = _enemyBasePos;
 
             if (instant)
             {
@@ -241,19 +357,46 @@ namespace Cardmong.Game
             NewEnemy(instant: false);
         }
 
-        private void UpdateHpText() => _hpText.text = $"{_hp} / {_maxHp}";
+        // -------------------------------------------------------------- restart
 
-        private void SpawnDamage(int dmg, bool crit, Vector2 pos)
+        private void GameOver()
         {
-            var t = NewText("Dmg", _canvasRt, (crit ? "CRIT " : "") + dmg,
-                            crit ? 80 : 56, crit ? new Color(1f, 0.55f, 0.15f) : Color.white);
+            _gameOver = true;
+            _gameOverInfo.text = $"GAME OVER\nKILLS  {_kills}\n\ntap to retry";
+            _gameOverPanel.SetActive(true);
+        }
+
+        private void Restart()
+        {
+            _gameOver = false;
+            _gameOverPanel.SetActive(false);
+            _kills = 0;
+            _killText.text = "KILLS  0";
+            _playerHp = PlayerMaxHp;
+            UpdatePlayerHpText();
+            _playerHpFill.fillAmount = 1f;
+            foreach (var c in _cards)
+            {
+                c.Cd = 0f;
+                c.CdOverlay.fillAmount = 0f;
+            }
+            _enemyAttacking = false;
+            NewEnemy(instant: true);
+        }
+
+        private void UpdateHpText() => _hpText.text = $"{_hp} / {_maxHp}";
+        private void UpdatePlayerHpText() => _playerHpText.text = $"YOU   {_playerHp} / {PlayerMaxHp}";
+
+        private void FloatNumber(string text, float size, Color color, Vector2 pos)
+        {
+            var t = NewText("Float", _canvasRt, text, size, color);
             t.fontStyle = FontStyles.Bold;
             var jitter = new Vector2(Random.Range(-90f, 90f), Random.Range(-20f, 30f));
             Anchor(t.rectTransform, new Vector2(0.5f, 0.5f), pos + jitter, new Vector2(500, 110));
-            StartCoroutine(FloatDamage(t));
+            StartCoroutine(FloatUp(t));
         }
 
-        private IEnumerator FloatDamage(TMP_Text t)
+        private IEnumerator FloatUp(TMP_Text t)
         {
             RectTransform rt = t.rectTransform;
             Vector2 start = rt.anchoredPosition;
@@ -296,29 +439,43 @@ namespace Cardmong.Game
 
             var hpBg = NewImage("HpBg", _canvasRt, new Color(0f, 0f, 0f, 0.55f));
             Anchor(hpBg.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, 540), new Vector2(700, 54));
-
             _hpFill = NewImage("HpFill", hpBg.rectTransform, new Color(0.86f, 0.30f, 0.32f));
             Stretch(_hpFill.rectTransform, 6f);
             _hpFill.type = Image.Type.Filled;
             _hpFill.fillMethod = Image.FillMethod.Horizontal;
             _hpFill.fillOrigin = (int)Image.OriginHorizontal.Left;
             _hpFill.fillAmount = 1f;
-
             _hpText = NewText("HpText", hpBg.rectTransform, "", 30, Color.white);
             Stretch(_hpText.rectTransform);
 
             _enemy = NewImage("Enemy", _canvasRt, EnemyPalette[0]);
             _enemyRt = _enemy.rectTransform;
-            Anchor(_enemyRt, new Vector2(0.5f, 0.5f), new Vector2(0, 250), new Vector2(MonsterBase, MonsterBase));
+            _enemyBasePos = new Vector2(0, 250);
+            Anchor(_enemyRt, new Vector2(0.5f, 0.5f), _enemyBasePos, new Vector2(MonsterBase, MonsterBase));
             AddFace(_enemyRt, 1f);
 
             _enemyLabel = NewText("EnemyLabel", _canvasRt, "", 34, Color.white);
             Anchor(_enemyLabel.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, 30), new Vector2(700, 56));
 
-            var hint = NewText("Hint", _canvasRt, "tap a card to send your monster", 28, new Color(1f, 1f, 1f, 0.55f));
-            Anchor(hint.rectTransform, new Vector2(0.5f, 0f), new Vector2(0, 660), new Vector2(900, 48));
+            // 플레이어 HP (하단)
+            _playerHpBasePos = new Vector2(0, 700);
+            var pBg = NewImage("PlayerHpBg", _canvasRt, new Color(0f, 0f, 0f, 0.55f));
+            _playerHpRt = pBg.rectTransform;
+            Anchor(_playerHpRt, new Vector2(0.5f, 0f), _playerHpBasePos, new Vector2(700, 50));
+            _playerHpFill = NewImage("PlayerHpFill", _playerHpRt, new Color(0.30f, 0.80f, 0.40f));
+            Stretch(_playerHpFill.rectTransform, 6f);
+            _playerHpFill.type = Image.Type.Filled;
+            _playerHpFill.fillMethod = Image.FillMethod.Horizontal;
+            _playerHpFill.fillOrigin = (int)Image.OriginHorizontal.Left;
+            _playerHpFill.fillAmount = 1f;
+            _playerHpText = NewText("PlayerHpText", _playerHpRt, "", 28, Color.white);
+            Stretch(_playerHpText.rectTransform);
+
+            var hint = NewText("Hint", _canvasRt, "tap a card to attack — the enemy strikes back!", 26, new Color(1f, 1f, 1f, 0.55f));
+            Anchor(hint.rectTransform, new Vector2(0.5f, 0f), new Vector2(0, 632), new Vector2(960, 44));
 
             BuildHand();
+            BuildGameOver();
         }
 
         private void BuildHand()
@@ -365,6 +522,17 @@ namespace Cardmong.Game
             card.CdOverlay = cd;
 
             return card;
+        }
+
+        private void BuildGameOver()
+        {
+            var panel = NewImage("GameOver", _canvasRt, new Color(0.05f, 0.05f, 0.09f, 0.85f));
+            Stretch(panel.rectTransform);
+            _gameOverPanel = panel.gameObject;
+            _gameOverInfo = NewText("GameOverText", panel.rectTransform, "", 64, Color.white);
+            _gameOverInfo.fontStyle = FontStyles.Bold;
+            Anchor(_gameOverInfo.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900, 600));
+            _gameOverPanel.SetActive(false);
         }
 
         private void AddFace(RectTransform parent, float s)
