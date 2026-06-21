@@ -5,7 +5,6 @@ using UnityEngine;
 using UnityEngine.Networking;
 using Newtonsoft.Json;
 using Cardmong.Network.Dto;
-using Cardmong.Data;
 
 namespace Cardmong.Network
 {
@@ -24,7 +23,6 @@ namespace Cardmong.Network
         public async Task<T> GetAsync<T>(string path)
         {
             using var request = UnityWebRequest.Get(BaseUrl + path);
-            SetAuthHeader(request);
             await SendRequest(request);
             return ParseResponse<T>(request);
         }
@@ -36,7 +34,6 @@ namespace Cardmong.Network
             request.uploadHandler   = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
-            SetAuthHeader(request);
             await SendRequest(request);
             return ParseResponse<T>(request);
         }
@@ -48,7 +45,6 @@ namespace Cardmong.Network
             request.uploadHandler   = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
-            SetAuthHeader(request);
             await SendRequest(request);
             return ParseResponse<T>(request);
         }
@@ -56,7 +52,6 @@ namespace Cardmong.Network
         public async Task DeleteAsync(string path)
         {
             using var request = UnityWebRequest.Delete(BaseUrl + path);
-            SetAuthHeader(request);
             await SendRequest(request);
         }
 
@@ -66,13 +61,6 @@ namespace Cardmong.Network
             var op  = request.SendWebRequest();
             op.completed += _ => tcs.SetResult(true);
             return tcs.Task;
-        }
-
-        private void SetAuthHeader(UnityWebRequest request)
-        {
-            string token = SessionData.Instance.AccessToken;
-            if (!string.IsNullOrEmpty(token))
-                request.SetRequestHeader("Authorization", $"Bearer {token}");
         }
 
         private T ParseResponse<T>(UnityWebRequest request)

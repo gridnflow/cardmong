@@ -1,18 +1,15 @@
 using UnityEngine;
-using Cardmong.Data;
 
 namespace Cardmong.Core
 {
+    /// <summary>
+    /// Boot 씬 진입점. 로그인 절차 없이 곧바로 게임(로비)으로 이동한다.
+    /// </summary>
     public class AppStateManager : MonoBehaviour
     {
         private void Start()
         {
-            string token = LocalStorage.Load("access_token");
-
-            if (string.IsNullOrEmpty(token))
-                SceneLoader.Load(SceneLoader.Login);
-            else
-                SceneLoader.Load(SceneLoader.Lobby);
+            SceneLoader.Load(SceneLoader.Lobby);
         }
     }
 }
