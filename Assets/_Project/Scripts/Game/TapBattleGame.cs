@@ -15,13 +15,17 @@ namespace Cardmong.Game
     /// </summary>
     public class TapBattleGame : MonoBehaviour
     {
+        private enum Element { Fire, Water, Earth, Lightning, Wind }
+
         private struct Archetype
         {
             public string Name;
+            public Element Element;
             public Color Color;
             public int Atk;
             public float Cooldown;
-            public Archetype(string n, Color c, int atk, float cd) { Name = n; Color = c; Atk = atk; Cooldown = cd; }
+            public Archetype(string n, Element el, Color c, int atk, float cd)
+            { Name = n; Element = el; Color = c; Atk = atk; Cooldown = cd; }
         }
 
         private class Card
@@ -29,6 +33,7 @@ namespace Cardmong.Game
             public RectTransform Rt;
             public Image CdOverlay;
             public string Name;
+            public Element Element;
             public Color Color;
             public int Atk;
             public float CdTotal;
@@ -37,11 +42,11 @@ namespace Cardmong.Game
 
         private static readonly Archetype[] Types =
         {
-            new Archetype("Slime",  new Color(0.45f, 0.78f, 0.40f), 12, 0.9f),
-            new Archetype("Wolf",   new Color(0.40f, 0.62f, 0.92f), 16, 1.0f),
-            new Archetype("Imp",    new Color(0.88f, 0.45f, 0.40f), 20, 1.2f),
-            new Archetype("Golem",  new Color(0.62f, 0.55f, 0.72f), 30, 1.9f),
-            new Archetype("Drake",  new Color(0.93f, 0.62f, 0.28f), 36, 2.3f),
+            new Archetype("Ember",   Element.Fire,      new Color(0.94f, 0.45f, 0.24f), 20, 1.1f),
+            new Archetype("Splash",  Element.Water,     new Color(0.34f, 0.66f, 0.95f), 16, 1.0f),
+            new Archetype("Boulder", Element.Earth,     new Color(0.66f, 0.52f, 0.36f), 30, 1.9f),
+            new Archetype("Spark",   Element.Lightning, new Color(0.96f, 0.85f, 0.30f), 14, 0.8f),
+            new Archetype("Gale",    Element.Wind,      new Color(0.45f, 0.82f, 0.62f), 18, 1.1f),
         };
 
         private static readonly Color[] EnemyPalette =
@@ -206,6 +211,7 @@ namespace Cardmong.Game
                 yield return null;
             }
 
+            PlayEffect(c.Element, CanvasPoint(_enemyRt));
             DamageEnemy(c.Atk);
 
             t = 0f;
@@ -272,7 +278,10 @@ namespace Cardmong.Game
             }
 
             if (!_gameOver && !_busy)
+            {
+                PlayEffect(a.Element, CanvasPoint(_playerHpRt) + new Vector2(0, 60));
                 DamagePlayer(a);
+            }
 
             t = 0f;
             const float durBack = 0.16f;
@@ -451,6 +460,95 @@ namespace Cardmong.Game
             Destroy(t.gameObject);
         }
 
+        // ---------------------------------------------------------- 속성 이펙트
+
+        private void PlayEffect(Element e, Vector2 center)
+        {
+            switch (e)
+            {
+                case Element.Fire: // 위로 타오르는 불꽃
+                    Burst(center, 16, 90f, 38f, 200f, 400f, -160f, 0.55f, 44f,
+                          new Color(1f, 0.80f, 0.28f), new Color(0.85f, 0.12f, 0.04f), 0f);
+                    break;
+                case Element.Water: // 사방으로 튀었다가 떨어지는 물방울
+                    Burst(center, 18, 90f, 120f, 240f, 470f, 760f, 0.6f, 30f,
+                          new Color(0.58f, 0.84f, 1f), new Color(0.18f, 0.44f, 0.92f), 0f);
+                    break;
+                case Element.Earth: // 튀어오르며 회전하는 흙덩이
+                    Burst(center, 11, 90f, 80f, 240f, 440f, 980f, 0.6f, 48f,
+                          new Color(0.70f, 0.56f, 0.40f), new Color(0.34f, 0.26f, 0.17f), 240f);
+                    break;
+                case Element.Lightning: // 섬광 + 빠른 스파크
+                    Flash(new Color(1f, 0.96f, 0.45f, 0.35f));
+                    Burst(center, 16, 0f, 180f, 520f, 850f, 0f, 0.24f, 18f,
+                          new Color(1f, 1f, 0.65f), new Color(1f, 0.85f, 0.20f), 0f);
+                    break;
+                case Element.Wind: // 바깥으로 도는 초록 소용돌이
+                    Burst(center, 14, 0f, 180f, 200f, 380f, -40f, 0.5f, 28f,
+                          new Color(0.64f, 0.96f, 0.74f), new Color(0.28f, 0.68f, 0.48f), 340f);
+                    break;
+            }
+        }
+
+        private void Burst(Vector2 center, int count, float baseDeg, float spreadDeg,
+                           float spMin, float spMax, float gravity, float life, float size,
+                           Color cA, Color cB, float spin)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                float ang = (baseDeg + Random.Range(-spreadDeg, spreadDeg)) * Mathf.Deg2Rad;
+                float sp = Random.Range(spMin, spMax);
+                Vector2 vel = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * sp;
+                var img = NewImage("fx", _canvasRt, cA);
+                Vector2 jitter = new Vector2(Random.Range(-14f, 14f), Random.Range(-14f, 14f));
+                Anchor(img.rectTransform, new Vector2(0.5f, 0.5f), center + jitter, new Vector2(size, size));
+                float s = spin * (Random.value < 0.5f ? -1f : 1f);
+                StartCoroutine(Particle(img, vel, gravity, life * Random.Range(0.8f, 1.2f), cA, cB, s));
+            }
+        }
+
+        private IEnumerator Particle(Image img, Vector2 vel, float gravity, float life, Color cA, Color cB, float spin)
+        {
+            RectTransform rt = img.rectTransform;
+            Vector2 pos = rt.anchoredPosition;
+            float t = 0f;
+            while (t < life)
+            {
+                float dt = Time.deltaTime;
+                pos += vel * dt;
+                vel.y -= gravity * dt;
+                rt.anchoredPosition = pos;
+                float p = t / life;
+                rt.localScale = Vector3.one * Mathf.Lerp(1f, 0.2f, p);
+                if (spin != 0f) rt.Rotate(0f, 0f, spin * dt);
+                Color c = Color.Lerp(cA, cB, p);
+                img.color = new Color(c.r, c.g, c.b, 1f - p);
+                t += dt;
+                yield return null;
+            }
+            Destroy(img.gameObject);
+        }
+
+        private void Flash(Color color)
+        {
+            var img = NewImage("Flash", _canvasRt, color);
+            Stretch(img.rectTransform);
+            StartCoroutine(FadeFlash(img, color));
+        }
+
+        private IEnumerator FadeFlash(Image img, Color c)
+        {
+            float t = 0f;
+            const float dur = 0.18f;
+            while (t < dur)
+            {
+                t += Time.deltaTime;
+                img.color = new Color(c.r, c.g, c.b, Mathf.Lerp(c.a, 0f, t / dur));
+                yield return null;
+            }
+            Destroy(img.gameObject);
+        }
+
         // -------------------------------------------------------------- UI build
 
         private void BuildUI()
@@ -532,7 +630,7 @@ namespace Cardmong.Game
 
         private Card MakeCard(int slot, float x, Archetype a)
         {
-            var card = new Card { Name = a.Name, Color = a.Color, Atk = a.Atk, CdTotal = a.Cooldown, Cd = 0f };
+            var card = new Card { Name = a.Name, Element = a.Element, Color = a.Color, Atk = a.Atk, CdTotal = a.Cooldown, Cd = 0f };
 
             var panel = NewImage($"Card{slot}", _canvasRt, new Color(0.16f, 0.17f, 0.24f));
             card.Rt = panel.rectTransform;
