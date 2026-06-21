@@ -490,7 +490,7 @@ namespace Cardmong.Game
             }
             _enemyRt.localScale = Vector3.zero;
             _stage++;
-            _playerHp = Mathf.Min(PlayerMaxHp, _playerHp + 15); // 처치 보상 회복
+            _playerHp = PlayerMaxHp; // 새 스테이지 진입 시 HP 풀 회복
             yield return new WaitForSeconds(0.2f);
             EnterDraft();
         }
