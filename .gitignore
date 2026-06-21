@@ -1,0 +1,38 @@
+# Unity 자동 생성 폴더 (Git 불필요)
+/Library/
+/Temp/
+/Logs/
+/obj/
+/Build/
+/Builds/
+/UserSettings/
+
+# Unity 캐시
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# OS 파일
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# 빌드 결과물
+*.apk
+*.aab
+*.ipa
+
+# 크래시 리포트
+sysinfo.txt
+crashlytics-build.properties
