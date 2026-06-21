@@ -9,26 +9,38 @@ namespace Cardmong.Battle
         [SerializeField] private MonsterEntity monsterPrefab;
         [SerializeField] private BattleField field;
 
-        public Dictionary<int, MonsterEntity> SpawnAll(List<BattleLogDto> logs)
+        // sourceId → MonsterEntity; side=0 attacker left, side=1 defender right
+        public Dictionary<long, MonsterEntity> SpawnFromLog(List<BattleLogDto> logs,
+            List<long> attackerIds, List<long> defenderIds)
         {
-            var monsters = new Dictionary<int, MonsterEntity>();
+            var monsters = new Dictionary<long, MonsterEntity>();
 
-            foreach (var log in logs)
+            int aIndex = 0;
+            foreach (long id in attackerIds)
             {
-                if (!monsters.ContainsKey(log.ActorCardId))
-                    monsters[log.ActorCardId] = SpawnMonster(log.ActorCardId);
+                var entity = SpawnMonster(id, side: 0, slotIndex: aIndex++, total: attackerIds.Count);
+                monsters[id] = entity;
+            }
 
-                if (log.TargetCardId.HasValue && !monsters.ContainsKey(log.TargetCardId.Value))
-                    monsters[log.TargetCardId.Value] = SpawnMonster(log.TargetCardId.Value);
+            int dIndex = 0;
+            foreach (long id in defenderIds)
+            {
+                var entity = SpawnMonster(id, side: 1, slotIndex: dIndex++, total: defenderIds.Count);
+                monsters[id] = entity;
             }
 
             return monsters;
         }
 
-        private MonsterEntity SpawnMonster(int cardId)
+        private MonsterEntity SpawnMonster(long userCardId, int side, int slotIndex, int total)
         {
-            var entity = Instantiate(monsterPrefab, field.GetPosition(0, 0), Quaternion.identity);
-            entity.Init(cardId);
+            // Left side x=-3~-1, right side x=1~3
+            float xBase  = side == 0 ? -3f : 1f;
+            float ySpread = (total > 1) ? (slotIndex - (total - 1) / 2f) * 1.5f : 0f;
+            var pos = new Vector3(xBase + (side == 0 ? 0f : 2f), ySpread, 0f);
+
+            var entity = Instantiate(monsterPrefab, pos, Quaternion.identity);
+            entity.Init(userCardId, side == 1); // flip sprite for right side
             return entity;
         }
     }

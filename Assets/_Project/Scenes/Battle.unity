@@ -199,6 +199,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ee54c227029264ab7a90968005480874, type: 3}
   m_Name:
   m_EditorClassIdentifier:
+  spawner: {fileID: 150004}
+  field: {fileID: 150003}
 --- !u!114 &150003
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -208,6 +210,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3116e1b7dd4ff4576a2c0ec3e3263b77, type: 3}
   m_Name:
   m_EditorClassIdentifier:
+  cellSize: 1.5
+  origin: {x: -3, y: -2}
 --- !u!114 &150004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -217,6 +221,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b50ff681606749b5bbbe054f0c7960f, type: 3}
   m_Name:
   m_EditorClassIdentifier:
+  monsterPrefab: {fileID: 1000003, guid: c1d2e3f4a5b6789012cde345678901ab, type: 3}
+  field: {fileID: 150003}
 --- !u!1 &200000
 GameObject:
   m_ObjectHideFlags: 0

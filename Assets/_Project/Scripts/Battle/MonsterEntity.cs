@@ -6,17 +6,35 @@ namespace Cardmong.Battle
 {
     public class MonsterEntity : MonoBehaviour
     {
-        [SerializeField] private Animator animator;
         [SerializeField] private MonsterHpBar hpBar;
         [SerializeField] private SpriteRenderer spriteRenderer;
 
         private int _maxHp;
         private int _currentHp;
-        private int _cardId;
+        private long _userCardId;
 
-        public void Init(int cardId)
+        private static readonly Color[] RoleColors =
         {
-            _cardId = cardId;
+            new Color(0.9f, 0.3f, 0.3f), // red   — WARRIOR
+            new Color(0.3f, 0.5f, 0.9f), // blue  — MAGE
+            new Color(0.3f, 0.8f, 0.4f), // green — SUPPORT
+            new Color(0.8f, 0.7f, 0.2f), // gold  — TANK
+            new Color(0.7f, 0.3f, 0.9f), // purple— ASSASSIN
+        };
+
+        public void Init(long userCardId, bool flipX = false)
+        {
+            _userCardId = userCardId;
+
+            if (spriteRenderer != null)
+            {
+                // Generate a colored placeholder sprite if no real sprite is assigned
+                if (spriteRenderer.sprite == null)
+                    spriteRenderer.sprite = PlaceholderSprite.Get((int)(userCardId % RoleColors.Length));
+
+                spriteRenderer.color   = RoleColors[userCardId % RoleColors.Length];
+                spriteRenderer.flipX   = flipX;
+            }
         }
 
         public void SetHp(int maxHp)
@@ -28,74 +46,93 @@ namespace Cardmong.Battle
 
         public void PlayAttack(MonsterEntity target, int damage)
         {
-            animator?.SetTrigger("Attack");
-            StartCoroutine(DelayedDamage(target, damage, 0.3f));
+            StartCoroutine(AttackBounce(target, damage));
         }
 
         public void PlaySkill(string skillName, MonsterEntity target, int damage)
         {
-            animator?.SetTrigger("Skill");
-            if (damage > 0)
-                target.TakeDamage(damage);
-        }
-
-        public void MoveTo(Vector3 targetPos)
-        {
-            StartCoroutine(MoveCoroutine(targetPos));
+            StartCoroutine(SkillFlash(target, damage));
         }
 
         public void PlayHeal(int amount)
         {
             _currentHp = Math.Min(_maxHp, _currentHp + amount);
             hpBar?.UpdateHp(_currentHp);
+            StartCoroutine(FlashColor(new Color(0.3f, 1f, 0.5f), 0.2f));
         }
 
         public void PlayDeath()
         {
-            animator?.SetTrigger("Death");
-            StartCoroutine(DisableAfterDelay(0.8f));
+            StartCoroutine(DeathFade());
         }
 
         public void TakeDamage(int damage)
         {
             _currentHp = Math.Max(0, _currentHp - damage);
             hpBar?.UpdateHp(_currentHp);
-            animator?.SetTrigger("Hit");
+            StartCoroutine(FlashColor(Color.white, 0.1f));
         }
 
         public void ApplyDebuffVfx(string effectType)
         {
-            // 상태이상 VFX — 추후 파티클 연결
-            Debug.Log($"[Debuff] {effectType} applied to card {_cardId}");
+            StartCoroutine(FlashColor(new Color(0.8f, 0.8f, 0.2f), 0.3f)); // yellow stun flash
         }
 
-        private IEnumerator DelayedDamage(MonsterEntity target, int damage, float delay)
+        // Quick forward lunge toward target, then return
+        private IEnumerator AttackBounce(MonsterEntity target, int damage)
         {
-            yield return new WaitForSeconds(delay);
+            Vector3 origin = transform.position;
+            Vector3 toward = Vector3.Lerp(origin, target.transform.position, 0.35f);
+
+            yield return MoveToSmooth(toward, 0.12f);
             target.TakeDamage(damage);
+            yield return MoveToSmooth(origin, 0.12f);
         }
 
-        private IEnumerator MoveCoroutine(Vector3 targetPos)
+        private IEnumerator SkillFlash(MonsterEntity target, int damage)
         {
-            animator?.SetBool("IsMoving", true);
-            float duration = 0.3f;
+            yield return FlashColor(new Color(1f, 0.9f, 0.2f), 0.15f);
+            if (damage > 0) target.TakeDamage(damage);
+        }
+
+        private IEnumerator MoveToSmooth(Vector3 dest, float duration)
+        {
+            Vector3 start   = transform.position;
+            float   elapsed = 0f;
+            while (elapsed < duration)
+            {
+                transform.position = Vector3.Lerp(start, dest, elapsed / duration);
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+            transform.position = dest;
+        }
+
+        private IEnumerator FlashColor(Color flashColor, float duration)
+        {
+            if (spriteRenderer == null) yield break;
+            Color original = spriteRenderer.color;
+            spriteRenderer.color = flashColor;
+            yield return new WaitForSeconds(duration);
+            spriteRenderer.color = original;
+        }
+
+        private IEnumerator DeathFade()
+        {
+            if (spriteRenderer == null) { gameObject.SetActive(false); yield break; }
+
             float elapsed  = 0f;
-            Vector3 startPos = transform.position;
+            float duration = 0.6f;
+            Color start    = spriteRenderer.color;
 
             while (elapsed < duration)
             {
-                transform.position = Vector3.Lerp(startPos, targetPos, elapsed / duration);
+                float a = Mathf.Lerp(1f, 0f, elapsed / duration);
+                spriteRenderer.color = new Color(start.r, start.g, start.b, a);
                 elapsed += Time.deltaTime;
                 yield return null;
             }
 
-            transform.position = targetPos;
-            animator?.SetBool("IsMoving", false);
-        }
-
-        private IEnumerator DisableAfterDelay(float delay)
-        {
-            yield return new WaitForSeconds(delay);
             gameObject.SetActive(false);
         }
     }

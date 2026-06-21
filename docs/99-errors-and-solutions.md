@@ -97,3 +97,48 @@ Long cannot be converted to Integer
 **Error**: `File has not been read yet. Read it first before writing to it.`
 **Root cause**: The `Edit` tool requires the file to have been opened with `Read` in the current session. Files created via `Bash` heredoc bypass this tracking.
 **Solution**: Used `sed -i ''` to perform in-place substitutions on the scene file, and `grep -n` to find line numbers before editing.
+
+---
+
+## Step 3 — API Integration Testing (Unity ↔ Spring Boot)
+
+### Error 12: Docker Desktop was not running
+**When**: Running `docker compose up -d` to start MySQL and Redis
+**Error**: `Cannot connect to the Docker daemon at unix:///var/run/docker.sock`
+**Root cause**: Docker Desktop app was not running — the daemon is only active when the app is open.
+**Solution**: `open -a Docker` to start Docker Desktop, then waited for the daemon to come up before retrying.
+
+---
+
+### Error 13: `user_cards` INSERT missing `is_max_level` column / `base_crit_chance` NOT NULL
+**When**: Seeding test data via `mysql -u cardmong -p cardmong < seed.sql`
+**Error 1**: `Unknown column 'is_max_level' in 'field list'` — the actual `user_cards` schema has no such column (schema: id, exp, is_locked, level, obtained_at, upgrade_count, card_id, user_id).
+**Error 2**: `Field 'base_crit_chance' doesn't have a default value` — the `cards` table requires `base_crit_chance` but the INSERT didn't include it.
+**Root cause**: INSERT statements were written from assumed schema instead of the live Hibernate-generated DDL.
+**Solution**: Ran `DESCRIBE user_cards` and `DESCRIBE cards` to get actual column lists, then rewrote the INSERTs to match the real schema including `base_crit_chance`.
+
+---
+
+### Error 14: JWT access token expired between server restarts
+**When**: Testing API endpoints after restarting Spring Boot for a rebuild
+**Error**: All authenticated requests returned HTTP 401 with empty body
+**Root cause**: Each server restart invalidates the JWT secret key's context (stateless JWT with 1-hour expiry). Also, the 401 response had no body at all, making it hard to diagnose.
+**Solution**:
+1. Re-called `POST /v1/auth/login` to get a fresh access token.
+2. Fixed `SecurityConfig.java` to return JSON `{"success":false,"error":{"code":"AUTH_UNAUTHORIZED","message":"Unauthorized."}}` on 401 instead of an empty body.
+
+---
+
+### Error 15: Deck create with 6 cards returned HTTP 500 instead of 400
+**When**: Testing `POST /v1/users/me/decks` with 6 `userCardIds` (limit is 5)
+**Error**: Returned `{"timestamp":"...","status":500,"error":"Internal Server Error"}` instead of a validation error.
+**Root cause**: Spring's `MethodArgumentNotValidException` (triggered by `@Size(max=5)` on `userCardIds`) was not handled by `GlobalExceptionHandler`, so Spring's default error response was returned.
+**Solution**: Added `@ExceptionHandler(MethodArgumentNotValidException.class)` to `GlobalExceptionHandler.java` returning `VALIDATION_ERROR` with the field name and message. Also added `ApiResponse.failRaw(code, message)` helper to produce typed error responses without a data payload.
+
+---
+
+### Error 16: `git add` run from wrong directory
+**When**: Trying to commit Step 3 changes
+**Error**: `git add` ran from inside `cardmong-server/` instead of the Unity project root (`cardmong/`). Files were either not found or staged in the wrong relative path.
+**Root cause**: The shell's working directory was `cardmong-server/` at the time of the commit attempt.
+**Solution**: Changed directory to `/Users/yeong/dev/pf/cardmong/cardmong/` (the git root) before running `git add` with full relative paths from that root.
