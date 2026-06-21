@@ -100,6 +100,7 @@ namespace Cardmong.Game
         private float _shake;
         private float _shakeMag;
         private const float ShakeDur = 0.28f;
+        private float _tapEnableTime;   // 페이즈 전환 직후 연타로 화면이 넘어가는 것 방지
 
         private readonly List<(RectTransform rt, System.Action onTap)> _taps = new();
 
@@ -135,7 +136,7 @@ namespace Cardmong.Game
 
             if (_phase == Phase.Battle) BattleUpdate();
 
-            if (pressed && !_busy)
+            if (pressed && !_busy && Time.time >= _tapEnableTime)
             {
                 Vector2 sp = p.position.ReadValue();
                 for (int i = _taps.Count - 1; i >= 0; i--)
@@ -212,6 +213,7 @@ namespace Cardmong.Game
             _playerHurt = 0f;
             _shake = 0f;
             _shakeMag = 0f;
+            _tapEnableTime = Time.time + 0.25f; // 전환 직후 짧은 입력 잠금
             if (_canvasRt != null) _canvasRt.localPosition = Vector3.zero;
 
             _hpFill = null; _hpText = null; _enemyRt = null; _enemy = null; _enemyLabel = null;
@@ -311,7 +313,7 @@ namespace Cardmong.Game
 
             _enemyElement = (Element)Random.Range(0, 5);
             _enemyColor = EnemyPalette[_stage % EnemyPalette.Length];
-            _enemyMaxHp = 70 + _stage * 45;
+            _enemyMaxHp = 50 + _stage * 42;
             _enemyHp = _enemyMaxHp;
 
             var title = NewText("Title", _phaseRoot, $"STAGE {_stage + 1}", 40, new Color(1f, 0.85f, 0.2f));
@@ -365,7 +367,7 @@ namespace Cardmong.Game
             for (int s = 0; s < n; s++)
             {
                 float x = sx0 + s * (cw + gap);
-                var card = BuildCard(_phaseRoot, Types[_loadout[s]], new Vector2(x, 300), new Vector2(cw, 290), new Color(0.16f, 0.17f, 0.24f), null);
+                var card = BuildCard(_phaseRoot, Types[_loadout[s]], new Vector2(x, -640), new Vector2(cw, 300), new Color(0.16f, 0.17f, 0.24f), null);
                 _slotRt[s] = card.rectTransform;
                 var grey = NewImage("Used", card.rectTransform, new Color(0f, 0f, 0f, 0.62f));
                 Stretch(grey.rectTransform);
@@ -376,7 +378,7 @@ namespace Cardmong.Game
             }
 
             _attackText = NewText("AT", _phaseRoot, $"ATTACKS LEFT  {_attacksLeft}", 30, new Color(1f, 0.8f, 0.3f));
-            Anchor(_attackText.rectTransform, new Vector2(0.5f, 0f), new Vector2(0, 640), new Vector2(900, 42));
+            Anchor(_attackText.rectTransform, new Vector2(0.5f, 0f), new Vector2(0, 500), new Vector2(900, 42));
 
             _enemyAtkInterval = Mathf.Max(1.4f, 3.2f - _stage * 0.15f);
             _enemyAtkTimer = _enemyAtkInterval + 0.8f;
@@ -624,6 +626,7 @@ namespace Cardmong.Game
             var full = NewImage("Full", _phaseRoot, new Color(0, 0, 0, 0f));
             Stretch(full.rectTransform);
             AddTap(full.rectTransform, EnterLoadout);
+            _tapEnableTime = Time.time + 0.7f; // 보상 카드가 보이도록 잠깐 입력 잠금
         }
 
         private void EnterGameOver(string reason)
