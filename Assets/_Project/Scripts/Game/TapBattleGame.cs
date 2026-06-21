@@ -86,6 +86,7 @@ namespace Cardmong.Game
         private TMP_Text _attackText;
 
         private bool _busy;
+        private bool _continueBattle;   // 공격 소진 후 같은 적과 이어 싸우는 중
         private bool _enemyAttacking;
         private float _enemyHit;
         private float _playerHurt;
@@ -195,6 +196,7 @@ namespace Cardmong.Game
         {
             _playerHp = PlayerMaxHp;
             _stage = 0;
+            _continueBattle = false;
             _collection = new int[Types.Length];
             for (int i = 0; i < 5; i++) _collection[Random.Range(0, Types.Length)]++;
             EnterLoadout();
@@ -242,6 +244,14 @@ namespace Cardmong.Game
 
             var hp = NewText("HP", _phaseRoot, $"YOUR HP  {_playerHp}/{PlayerMaxHp}", 30, new Color(0.5f, 0.9f, 0.55f));
             Anchor(hp.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, -214), new Vector2(900, 40));
+
+            if (_continueBattle)
+            {
+                var en = NewText("EN", _phaseRoot,
+                    $"ENEMY {_enemyHp}/{_enemyMaxHp} [{ElementName(_enemyElement)}] — finish it!",
+                    26, new Color(1f, 0.6f, 0.5f));
+                Anchor(en.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, -262), new Vector2(1000, 36));
+            }
 
             // 컬렉션
             var owned = new List<int>();
@@ -311,10 +321,15 @@ namespace Cardmong.Game
             ClearPhase();
             _phase = Phase.Battle;
 
-            _enemyElement = (Element)Random.Range(0, 5);
-            _enemyColor = EnemyPalette[_stage % EnemyPalette.Length];
-            _enemyMaxHp = 50 + _stage * 42;
-            _enemyHp = _enemyMaxHp;
+            bool cont = _continueBattle;
+            _continueBattle = false;
+            if (!cont)
+            {
+                _enemyElement = (Element)Random.Range(0, 5);
+                _enemyColor = EnemyPalette[_stage % EnemyPalette.Length];
+                _enemyMaxHp = 50 + _stage * 42;
+                _enemyHp = _enemyMaxHp;
+            }
 
             var title = NewText("Title", _phaseRoot, $"STAGE {_stage + 1}", 40, new Color(1f, 0.85f, 0.2f));
             title.fontStyle = FontStyles.Bold;
@@ -327,7 +342,7 @@ namespace Cardmong.Game
             _hpFill.type = Image.Type.Filled;
             _hpFill.fillMethod = Image.FillMethod.Horizontal;
             _hpFill.fillOrigin = (int)Image.OriginHorizontal.Left;
-            _hpFill.fillAmount = 1f;
+            _hpFill.fillAmount = _enemyMaxHp > 0 ? (float)_enemyHp / _enemyMaxHp : 1f;
             _hpText = NewText("HpText", hpBg.rectTransform, "", 30, Color.white);
             Stretch(_hpText.rectTransform);
 
@@ -383,7 +398,8 @@ namespace Cardmong.Game
             _enemyAtkInterval = Mathf.Max(1.4f, 3.2f - _stage * 0.15f);
             _enemyAtkTimer = _enemyAtkInterval + 0.8f;
 
-            StartCoroutine(EnemySpawn());
+            if (cont) { _enemyRt.localScale = Vector3.one; _busy = false; }
+            else StartCoroutine(EnemySpawn());
         }
 
         private IEnumerator EnemySpawn()
@@ -499,11 +515,12 @@ namespace Cardmong.Game
         private IEnumerator OutOfAttacksRoutine()
         {
             _busy = true;
-            var msg = NewText("OOA", _phaseRoot, "OUT OF ATTACKS!", 56, new Color(1f, 0.5f, 0.5f));
+            var msg = NewText("OOA", _phaseRoot, "ENEMY SURVIVED!\npick a new hand", 52, new Color(1f, 0.7f, 0.4f));
             msg.fontStyle = FontStyles.Bold;
-            Anchor(msg.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900, 80));
-            yield return new WaitForSeconds(1.0f);
-            EnterGameOver("OUT OF ATTACKS");
+            Anchor(msg.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(950, 150));
+            yield return new WaitForSeconds(1.1f);
+            _continueBattle = true;   // 같은 적과 이어서 (적 HP 유지)
+            EnterLoadout();
         }
 
         // -------------------------------------------------------- enemy attacks
