@@ -246,53 +246,90 @@ namespace Cardmong.Game
             if (_busy || _gameOver) yield break;
             _enemyAttacking = true;
 
-            Vector2 baseP = _enemyBasePos;
-            Vector2 up = baseP + new Vector2(0, 40);
-            Vector2 down = baseP + new Vector2(0, -240);
+            // 적이 사용할 카드를 화면 중앙에 보여준다
+            Archetype a = Types[Random.Range(0, Types.Length)];
+            RectTransform card = SpawnEnemyCard(a);
+            yield return ScalePop(card, Vector3.zero, Vector3.one, 0.18f, true);
+            yield return new WaitForSeconds(0.3f); // 어떤 카드인지 볼 시간
 
-            // 준비 동작(살짝 위로)
+            // 그 카드에서 몬스터가 튀어나와 플레이어에게 날아간다
+            var token = NewImage("EToken", _canvasRt, a.Color);
+            AddFace(token.rectTransform, 120f / MonsterBase);
+            var trt = token.rectTransform;
+            Vector2 from = CanvasPoint(card);
+            Anchor(trt, new Vector2(0.5f, 0.5f), from, new Vector2(120, 120));
+            Vector2 to = CanvasPoint(_playerHpRt) + new Vector2(0, 60);
+
             float t = 0f;
-            while (t < 0.14f)
+            const float durOut = 0.22f;
+            while (t < durOut)
             {
                 t += Time.deltaTime;
-                _enemyRt.anchoredPosition = Vector2.Lerp(baseP, up, t / 0.14f);
-                yield return null;
-            }
-            // 돌진(아래로)
-            t = 0f;
-            while (t < 0.13f)
-            {
-                t += Time.deltaTime;
-                _enemyRt.anchoredPosition = Vector2.LerpUnclamped(up, down, EaseOutCubic(t / 0.13f));
+                float k = EaseOutCubic(t / durOut);
+                trt.anchoredPosition = Vector2.LerpUnclamped(from, to, k);
+                trt.localScale = Vector3.one * Mathf.Lerp(0.6f, 1.6f, k);
                 yield return null;
             }
 
             if (!_gameOver && !_busy)
-                DamagePlayer();
+                DamagePlayer(a);
 
-            // 복귀
             t = 0f;
-            while (t < 0.18f)
+            const float durBack = 0.16f;
+            while (t < durBack)
             {
                 t += Time.deltaTime;
-                _enemyRt.anchoredPosition = Vector2.Lerp(down, baseP, t / 0.18f);
+                float k = t / durBack;
+                trt.anchoredPosition = Vector2.Lerp(to, from, k);
+                trt.localScale = Vector3.one * Mathf.Lerp(1.6f, 0.3f, k);
                 yield return null;
             }
-            _enemyRt.anchoredPosition = baseP;
+            Destroy(token.gameObject);
+
+            yield return ScalePop(card, Vector3.one, Vector3.zero, 0.14f, false);
+            if (card) Destroy(card.gameObject);
             _enemyAttacking = false;
         }
 
-        private void DamagePlayer()
+        private void DamagePlayer(Archetype a)
         {
-            int dmg = Mathf.Max(1, 8 + _kills * 3 + Random.Range(-2, 3));
+            int dmg = Mathf.Max(1, a.Atk + _kills * 2 + Random.Range(-2, 3));
             _playerHp = Mathf.Max(0, _playerHp - dmg);
             UpdatePlayerHpText();
             _playerHurt = 0.3f;
             FloatNumber("-" + dmg, 60, new Color(1f, 0.45f, 0.45f),
-                        _playerHpBasePos + new Vector2(0, 80));
+                        CanvasPoint(_playerHpRt) + new Vector2(0, 70));
 
             if (_playerHp <= 0)
                 GameOver();
+        }
+
+        private RectTransform SpawnEnemyCard(Archetype a)
+        {
+            var panel = NewImage("EnemyAtkCard", _canvasRt, new Color(0.30f, 0.16f, 0.18f));
+            var rt = panel.rectTransform;
+            Anchor(rt, new Vector2(0.5f, 0.5f), new Vector2(0, -120), new Vector2(230, 320));
+
+            var tag = NewText("Tag", rt, "ENEMY", 24, new Color(1f, 0.55f, 0.55f));
+            tag.fontStyle = FontStyles.Bold;
+            Anchor(tag.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, 30), new Vector2(210, 34));
+
+            FillCard(rt, a);
+            rt.localScale = Vector3.zero;
+            return rt;
+        }
+
+        private IEnumerator ScalePop(RectTransform rt, Vector3 a, Vector3 b, float dur, bool overshoot)
+        {
+            float t = 0f;
+            while (t < dur)
+            {
+                t += Time.deltaTime;
+                float p = Mathf.Clamp01(t / dur);
+                rt.localScale = Vector3.LerpUnclamped(a, b, overshoot ? EaseOutBack(p) : p);
+                yield return null;
+            }
+            rt.localScale = b;
         }
 
         // ------------------------------------------------------- enemy lifecycle
@@ -501,17 +538,7 @@ namespace Cardmong.Game
             card.Rt = panel.rectTransform;
             Anchor(card.Rt, new Vector2(0.5f, 0f), new Vector2(x, 300), new Vector2(230, 320));
 
-            var nameText = NewText("Name", card.Rt, a.Name, 30, Color.white);
-            nameText.fontStyle = FontStyles.Bold;
-            Anchor(nameText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, -34), new Vector2(210, 40));
-
-            var swatch = NewImage("Swatch", card.Rt, a.Color);
-            Anchor(swatch.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, 16), new Vector2(150, 150));
-            AddFace(swatch.rectTransform, 150f / MonsterBase);
-
-            var atkText = NewText("Atk", card.Rt, $"ATK {a.Atk}", 30, new Color(1f, 0.85f, 0.3f));
-            atkText.fontStyle = FontStyles.Bold;
-            Anchor(atkText.rectTransform, new Vector2(0.5f, 0f), new Vector2(0, 30), new Vector2(210, 40));
+            FillCard(card.Rt, a);
 
             var cd = NewImage("Cd", card.Rt, new Color(0f, 0f, 0f, 0.62f));
             Stretch(cd.rectTransform);
@@ -522,6 +549,21 @@ namespace Cardmong.Game
             card.CdOverlay = cd;
 
             return card;
+        }
+
+        private void FillCard(RectTransform root, Archetype a)
+        {
+            var nameText = NewText("Name", root, a.Name, 30, Color.white);
+            nameText.fontStyle = FontStyles.Bold;
+            Anchor(nameText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, -34), new Vector2(210, 40));
+
+            var swatch = NewImage("Swatch", root, a.Color);
+            Anchor(swatch.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, 16), new Vector2(150, 150));
+            AddFace(swatch.rectTransform, 150f / MonsterBase);
+
+            var atkText = NewText("Atk", root, $"ATK {a.Atk}", 30, new Color(1f, 0.85f, 0.3f));
+            atkText.fontStyle = FontStyles.Bold;
+            Anchor(atkText.rectTransform, new Vector2(0.5f, 0f), new Vector2(0, 30), new Vector2(210, 40));
         }
 
         private void BuildGameOver()
