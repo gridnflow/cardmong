@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
@@ -7,39 +8,70 @@ using TMPro;
 namespace Cardmong.Game
 {
     /// <summary>
-    /// 백엔드 없이 오프라인으로 도는 세로 모바일 탭 배틀 슬라이스.
-    /// 모든 UI를 코드로 생성하므로(흰색 스프라이트 사용) 렌더링이 보장되고,
-    /// 손으로 만든 씬 목업의 불완전한 컴포넌트 문제를 우회한다.
-    /// 입력은 New Input System(Pointer.current)으로 직접 처리한다.
+    /// 오프라인 카드 배틀 슬라이스(세로 모바일).
+    /// 하단의 카드를 누르면 그 카드 안의 몬스터가 튀어나와 적에게 날아가 공격하고
+    /// 다시 카드로 돌아가며, 카드는 쿨다운 후 재사용된다. 적을 처치하면 더 강한
+    /// 적이 등장한다. 모든 UI는 코드로 생성하고 입력은 New Input System으로 처리한다.
     /// </summary>
     public class TapBattleGame : MonoBehaviour
     {
-        private static readonly Color[] Palette =
+        private struct Archetype
         {
-            new Color(0.45f, 0.78f, 0.40f),
-            new Color(0.40f, 0.62f, 0.92f),
-            new Color(0.88f, 0.45f, 0.40f),
-            new Color(0.80f, 0.55f, 0.92f),
-            new Color(0.92f, 0.74f, 0.36f),
+            public string Name;
+            public Color Color;
+            public int Atk;
+            public float Cooldown;
+            public Archetype(string n, Color c, int atk, float cd) { Name = n; Color = c; Atk = atk; Cooldown = cd; }
+        }
+
+        private class Card
+        {
+            public RectTransform Rt;
+            public Image CdOverlay;
+            public string Name;
+            public Color Color;
+            public int Atk;
+            public float CdTotal;
+            public float Cd;
+        }
+
+        private static readonly Archetype[] Types =
+        {
+            new Archetype("Slime",  new Color(0.45f, 0.78f, 0.40f), 12, 0.9f),
+            new Archetype("Wolf",   new Color(0.40f, 0.62f, 0.92f), 16, 1.0f),
+            new Archetype("Imp",    new Color(0.88f, 0.45f, 0.40f), 20, 1.2f),
+            new Archetype("Golem",  new Color(0.62f, 0.55f, 0.72f), 30, 1.9f),
+            new Archetype("Drake",  new Color(0.93f, 0.62f, 0.28f), 36, 2.3f),
         };
+
+        private static readonly Color[] EnemyPalette =
+        {
+            new Color(0.86f, 0.40f, 0.42f),
+            new Color(0.55f, 0.50f, 0.85f),
+            new Color(0.40f, 0.70f, 0.66f),
+            new Color(0.84f, 0.66f, 0.34f),
+            new Color(0.70f, 0.44f, 0.62f),
+        };
+
+        private const int HandSize = 4;
+        private const float MonsterBase = 360f; // 얼굴 비율 기준 크기
 
         private Sprite _box;
         private RectTransform _canvasRt;
-        private Image _monster;
-        private RectTransform _monsterRt;
+        private Image _enemy;
+        private RectTransform _enemyRt;
+        private TMP_Text _enemyLabel;
         private Image _hpFill;
         private TMP_Text _hpText;
         private TMP_Text _killText;
-        private TMP_Text _monsterLabel;
-        private RectTransform _attackBtnRt;
+        private readonly List<Card> _cards = new();
 
         private int _kills;
         private int _maxHp;
         private int _hp;
         private bool _busy;
-        private float _hitTimer;
-        private float _btnTimer;
-        private Color _monsterColor;
+        private float _enemyHit;
+        private Color _enemyColor;
 
         private void Start()
         {
@@ -51,66 +83,121 @@ namespace Cardmong.Game
                                  new Vector2(0.5f, 0.5f), 100f);
 
             BuildUI();
-            NewMonster(instant: true);
+            NewEnemy(instant: true);
         }
 
         private void Update()
         {
-            var p = Pointer.current;
-            if (!_busy && p != null && p.press.wasPressedThisFrame)
-                Attack();
-
-            // 몬스터 타격 반동
-            if (_hitTimer > 0f)
+            // 카드 쿨다운
+            foreach (var c in _cards)
             {
-                _hitTimer -= Time.deltaTime;
-                float k = Mathf.Clamp01(_hitTimer / 0.12f);
-                _monsterRt.localScale = Vector3.one * (1f + 0.18f * k);
+                if (c.Cd > 0f)
+                {
+                    c.Cd = Mathf.Max(0f, c.Cd - Time.deltaTime);
+                    c.CdOverlay.fillAmount = c.Cd / c.CdTotal;
+                }
             }
 
-            // 버튼 눌림 반동
-            if (_btnTimer > 0f)
+            // 적 타격 반동
+            if (_enemyHit > 0f)
             {
-                _btnTimer -= Time.deltaTime;
-                float k = Mathf.Clamp01(_btnTimer / 0.10f);
-                _attackBtnRt.localScale = Vector3.one * (1f - 0.08f * k);
+                _enemyHit -= Time.deltaTime;
+                float k = Mathf.Clamp01(_enemyHit / 0.14f);
+                _enemyRt.localScale = Vector3.one * (1f + 0.16f * k);
             }
 
-            // HP 바 부드럽게 감소
+            // HP 바 부드럽게
             float target = _maxHp > 0 ? (float)_hp / _maxHp : 0f;
             _hpFill.fillAmount = Mathf.MoveTowards(_hpFill.fillAmount, target, 2.5f * Time.deltaTime);
+
+            // 입력: 카드 탭
+            var p = Pointer.current;
+            if (!_busy && p != null && p.press.wasPressedThisFrame)
+            {
+                Vector2 sp = p.position.ReadValue();
+                foreach (var c in _cards)
+                {
+                    if (c.Cd <= 0f && RectTransformUtility.RectangleContainsScreenPoint(c.Rt, sp, null))
+                    {
+                        StartCoroutine(PlayCard(c));
+                        break;
+                    }
+                }
+            }
         }
 
-        // ----------------------------------------------------------- gameplay
+        // ------------------------------------------------------------- gameplay
 
-        private void Attack()
+        private IEnumerator PlayCard(Card c)
         {
-            bool crit = Random.value < 0.15f;
-            int dmg = Random.Range(8, 15) * (crit ? 2 : 1);
+            c.Cd = c.CdTotal;
+            c.CdOverlay.fillAmount = 1f;
+
+            // 카드에서 몬스터가 튀어나옴
+            var token = NewImage("Token", _canvasRt, c.Color);
+            AddFace(token.rectTransform, 120f / MonsterBase);
+            var trt = token.rectTransform;
+            Anchor(trt, new Vector2(0.5f, 0.5f), CanvasPoint(c.Rt), new Vector2(120, 120));
+
+            Vector2 from = trt.anchoredPosition;
+            Vector2 to = CanvasPoint(_enemyRt) + new Vector2(0, -30);
+
+            float t = 0f;
+            const float durOut = 0.22f;
+            while (t < durOut)
+            {
+                t += Time.deltaTime;
+                float k = EaseOutCubic(t / durOut);
+                trt.anchoredPosition = Vector2.LerpUnclamped(from, to, k);
+                trt.localScale = Vector3.one * Mathf.Lerp(0.6f, 1.7f, k);
+                yield return null;
+            }
+
+            DealDamage(c.Atk);
+
+            // 카드로 복귀
+            t = 0f;
+            const float durBack = 0.18f;
+            while (t < durBack)
+            {
+                t += Time.deltaTime;
+                float k = t / durBack;
+                trt.anchoredPosition = Vector2.Lerp(to, from, k);
+                trt.localScale = Vector3.one * Mathf.Lerp(1.7f, 0.3f, k);
+                yield return null;
+            }
+            Destroy(token.gameObject);
+        }
+
+        private void DealDamage(int atk)
+        {
+            if (_busy) return;
+
+            bool crit = Random.value < 0.12f;
+            int dmg = Mathf.Max(1, atk + Random.Range(-2, 3)) * (crit ? 2 : 1);
 
             _hp = Mathf.Max(0, _hp - dmg);
             UpdateHpText();
-            _hitTimer = 0.12f;
-            _btnTimer = 0.10f;
-            SpawnDamage(dmg, crit);
+            _enemyHit = 0.14f;
+            SpawnDamage(dmg, crit, CanvasPoint(_enemyRt) + new Vector2(0, 130));
 
             if (_hp <= 0)
                 StartCoroutine(KillAndRespawn());
         }
 
-        private void NewMonster(bool instant)
+        private void NewEnemy(bool instant)
         {
-            _maxHp = 100 + _kills * 40;
+            _maxHp = 120 + _kills * 60;
             _hp = _maxHp;
-            _monsterColor = Palette[_kills % Palette.Length];
-            _monster.color = _monsterColor;
-            _monsterLabel.text = $"SLIME  Lv.{_kills + 1}";
+            _enemyColor = EnemyPalette[_kills % EnemyPalette.Length];
+            _enemy.color = _enemyColor;
+            _enemyLabel.text = $"ENEMY  Lv.{_kills + 1}";
             _hpFill.fillAmount = 1f;
             UpdateHpText();
 
             if (instant)
             {
-                _monsterRt.localScale = Vector3.one;
+                _enemyRt.localScale = Vector3.one;
                 _busy = false;
             }
             else
@@ -126,10 +213,10 @@ namespace Cardmong.Game
             while (t < 0.35f)
             {
                 t += Time.deltaTime;
-                _monsterRt.localScale = Vector3.one * EaseOutBack(t / 0.35f);
+                _enemyRt.localScale = Vector3.one * EaseOutBack(t / 0.35f);
                 yield return null;
             }
-            _monsterRt.localScale = Vector3.one;
+            _enemyRt.localScale = Vector3.one;
             _busy = false;
         }
 
@@ -140,29 +227,29 @@ namespace Cardmong.Game
             _killText.text = $"KILLS  {_kills}";
 
             float t = 0f;
-            Vector3 s0 = _monsterRt.localScale;
+            Vector3 s0 = _enemyRt.localScale;
             while (t < 0.22f)
             {
                 t += Time.deltaTime;
                 float p = t / 0.22f;
-                _monsterRt.localScale = Vector3.LerpUnclamped(s0, Vector3.zero, p);
-                _monster.color = Color.Lerp(_monsterColor, new Color(1f, 1f, 1f, 0f), p);
+                _enemyRt.localScale = Vector3.LerpUnclamped(s0, Vector3.zero, p);
+                _enemy.color = Color.Lerp(_enemyColor, new Color(1f, 1f, 1f, 0f), p);
                 yield return null;
             }
-            _monsterRt.localScale = Vector3.zero;
+            _enemyRt.localScale = Vector3.zero;
             yield return new WaitForSeconds(0.12f);
-            NewMonster(instant: false);
+            NewEnemy(instant: false);
         }
 
         private void UpdateHpText() => _hpText.text = $"{_hp} / {_maxHp}";
 
-        private void SpawnDamage(int dmg, bool crit)
+        private void SpawnDamage(int dmg, bool crit, Vector2 pos)
         {
             var t = NewText("Dmg", _canvasRt, (crit ? "CRIT " : "") + dmg,
                             crit ? 80 : 56, crit ? new Color(1f, 0.55f, 0.15f) : Color.white);
             t.fontStyle = FontStyles.Bold;
-            var jitter = new Vector2(Random.Range(-120f, 120f), Random.Range(-20f, 40f));
-            Anchor(t.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, 120) + jitter, new Vector2(500, 110));
+            var jitter = new Vector2(Random.Range(-90f, 90f), Random.Range(-20f, 30f));
+            Anchor(t.rectTransform, new Vector2(0.5f, 0.5f), pos + jitter, new Vector2(500, 110));
             StartCoroutine(FloatDamage(t));
         }
 
@@ -177,7 +264,7 @@ namespace Cardmong.Game
             {
                 el += Time.deltaTime;
                 float p = el / dur;
-                rt.anchoredPosition = start + new Vector2(0, 160f * p);
+                rt.anchoredPosition = start + new Vector2(0, 150f * p);
                 t.color = new Color(c.r, c.g, c.b, 1f - p);
                 yield return null;
             }
@@ -194,23 +281,23 @@ namespace Cardmong.Game
             var scaler = canvasGo.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1080, 1920);
-            scaler.matchWidthOrHeight = 0f; // 세로: 너비 기준
+            scaler.matchWidthOrHeight = 0f;
             _canvasRt = canvasGo.GetComponent<RectTransform>();
 
             var bg = NewImage("BG", _canvasRt, new Color(0.10f, 0.11f, 0.18f));
             Stretch(bg.rectTransform);
 
-            var title = NewText("Title", _canvasRt, "CARDMONG  TAP BATTLE", 46, new Color(1f, 0.85f, 0.2f));
+            var title = NewText("Title", _canvasRt, "CARDMONG  BATTLE", 46, new Color(1f, 0.85f, 0.2f));
             title.fontStyle = FontStyles.Bold;
-            Anchor(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, -110), new Vector2(960, 70));
+            Anchor(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, -100), new Vector2(960, 70));
 
-            _killText = NewText("Kills", _canvasRt, "KILLS  0", 40, Color.white);
-            Anchor(_killText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, -190), new Vector2(960, 60));
+            _killText = NewText("Kills", _canvasRt, "KILLS  0", 38, Color.white);
+            Anchor(_killText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, -170), new Vector2(960, 56));
 
             var hpBg = NewImage("HpBg", _canvasRt, new Color(0f, 0f, 0f, 0.55f));
-            Anchor(hpBg.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, 430), new Vector2(680, 54));
+            Anchor(hpBg.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, 540), new Vector2(700, 54));
 
-            _hpFill = NewImage("HpFill", hpBg.rectTransform, new Color(0.30f, 0.85f, 0.35f));
+            _hpFill = NewImage("HpFill", hpBg.rectTransform, new Color(0.86f, 0.30f, 0.32f));
             Stretch(_hpFill.rectTransform, 6f);
             _hpFill.type = Image.Type.Filled;
             _hpFill.fillMethod = Image.FillMethod.Horizontal;
@@ -220,31 +307,72 @@ namespace Cardmong.Game
             _hpText = NewText("HpText", hpBg.rectTransform, "", 30, Color.white);
             Stretch(_hpText.rectTransform);
 
-            _monster = NewImage("Monster", _canvasRt, Palette[0]);
-            _monsterRt = _monster.rectTransform;
-            Anchor(_monsterRt, new Vector2(0.5f, 0.5f), new Vector2(0, 60), new Vector2(380, 380));
-            AddFace(_monsterRt);
+            _enemy = NewImage("Enemy", _canvasRt, EnemyPalette[0]);
+            _enemyRt = _enemy.rectTransform;
+            Anchor(_enemyRt, new Vector2(0.5f, 0.5f), new Vector2(0, 250), new Vector2(MonsterBase, MonsterBase));
+            AddFace(_enemyRt, 1f);
 
-            _monsterLabel = NewText("MLabel", _canvasRt, "", 34, Color.white);
-            Anchor(_monsterLabel.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, -180), new Vector2(700, 60));
+            _enemyLabel = NewText("EnemyLabel", _canvasRt, "", 34, Color.white);
+            Anchor(_enemyLabel.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, 30), new Vector2(700, 56));
 
-            var atk = NewImage("AttackBtn", _canvasRt, new Color(0.95f, 0.35f, 0.30f));
-            _attackBtnRt = atk.rectTransform;
-            Anchor(_attackBtnRt, new Vector2(0.5f, 0f), new Vector2(0, 300), new Vector2(760, 170));
-            var atkLabel = NewText("AtkLabel", _attackBtnRt, "TAP  TO  ATTACK", 48, Color.white);
-            atkLabel.fontStyle = FontStyles.Bold;
-            Stretch(atkLabel.rectTransform);
+            var hint = NewText("Hint", _canvasRt, "tap a card to send your monster", 28, new Color(1f, 1f, 1f, 0.55f));
+            Anchor(hint.rectTransform, new Vector2(0.5f, 0f), new Vector2(0, 660), new Vector2(900, 48));
 
-            var hint = NewText("Hint", _canvasRt, "tap anywhere on the screen", 28, new Color(1f, 1f, 1f, 0.5f));
-            Anchor(hint.rectTransform, new Vector2(0.5f, 0f), new Vector2(0, 210), new Vector2(800, 50));
+            BuildHand();
         }
 
-        private void AddFace(RectTransform parent)
+        private void BuildHand()
         {
-            var eyeColor = new Color(0.12f, 0.12f, 0.16f);
-            Anchor(NewImage("eyeL", parent, eyeColor).rectTransform, new Vector2(0.5f, 0.5f), new Vector2(-70, 40), new Vector2(60, 84));
-            Anchor(NewImage("eyeR", parent, eyeColor).rectTransform, new Vector2(0.5f, 0.5f), new Vector2(70, 40), new Vector2(60, 84));
-            Anchor(NewImage("mouth", parent, eyeColor).rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, -64), new Vector2(170, 38));
+            const float cardW = 230f;
+            const float gap = 20f;
+            float total = HandSize * cardW + (HandSize - 1) * gap;
+            float startX = -total / 2f + cardW / 2f;
+
+            for (int i = 0; i < HandSize; i++)
+            {
+                Archetype a = Types[Random.Range(0, Types.Length)];
+                float x = startX + i * (cardW + gap);
+                _cards.Add(MakeCard(i, x, a));
+            }
+        }
+
+        private Card MakeCard(int slot, float x, Archetype a)
+        {
+            var card = new Card { Name = a.Name, Color = a.Color, Atk = a.Atk, CdTotal = a.Cooldown, Cd = 0f };
+
+            var panel = NewImage($"Card{slot}", _canvasRt, new Color(0.16f, 0.17f, 0.24f));
+            card.Rt = panel.rectTransform;
+            Anchor(card.Rt, new Vector2(0.5f, 0f), new Vector2(x, 300), new Vector2(230, 320));
+
+            var nameText = NewText("Name", card.Rt, a.Name, 30, Color.white);
+            nameText.fontStyle = FontStyles.Bold;
+            Anchor(nameText.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, -34), new Vector2(210, 40));
+
+            var swatch = NewImage("Swatch", card.Rt, a.Color);
+            Anchor(swatch.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, 16), new Vector2(150, 150));
+            AddFace(swatch.rectTransform, 150f / MonsterBase);
+
+            var atkText = NewText("Atk", card.Rt, $"ATK {a.Atk}", 30, new Color(1f, 0.85f, 0.3f));
+            atkText.fontStyle = FontStyles.Bold;
+            Anchor(atkText.rectTransform, new Vector2(0.5f, 0f), new Vector2(0, 30), new Vector2(210, 40));
+
+            var cd = NewImage("Cd", card.Rt, new Color(0f, 0f, 0f, 0.62f));
+            Stretch(cd.rectTransform);
+            cd.type = Image.Type.Filled;
+            cd.fillMethod = Image.FillMethod.Vertical;
+            cd.fillOrigin = (int)Image.OriginVertical.Top;
+            cd.fillAmount = 0f;
+            card.CdOverlay = cd;
+
+            return card;
+        }
+
+        private void AddFace(RectTransform parent, float s)
+        {
+            var eye = new Color(0.12f, 0.12f, 0.16f);
+            Anchor(NewImage("eyeL", parent, eye).rectTransform, new Vector2(0.5f, 0.5f), new Vector2(-70 * s, 40 * s), new Vector2(60 * s, 84 * s));
+            Anchor(NewImage("eyeR", parent, eye).rectTransform, new Vector2(0.5f, 0.5f), new Vector2(70 * s, 40 * s), new Vector2(60 * s, 84 * s));
+            Anchor(NewImage("mouth", parent, eye).rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, -64 * s), new Vector2(170 * s, 38 * s));
         }
 
         // ----------------------------------------------------------- UI helpers
@@ -273,6 +401,13 @@ namespace Cardmong.Game
             return t;
         }
 
+        private Vector2 CanvasPoint(RectTransform rt)
+        {
+            Vector2 screen = RectTransformUtility.WorldToScreenPoint(null, rt.position);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(_canvasRt, screen, null, out var local);
+            return local;
+        }
+
         private static void Stretch(RectTransform rt, float pad = 0f)
         {
             rt.anchorMin = Vector2.zero;
@@ -296,6 +431,12 @@ namespace Cardmong.Game
             const float c3 = c1 + 1f;
             float xm = x - 1f;
             return 1f + c3 * xm * xm * xm + c1 * xm * xm;
+        }
+
+        private static float EaseOutCubic(float x)
+        {
+            float xm = 1f - x;
+            return 1f - xm * xm * xm;
         }
     }
 }
