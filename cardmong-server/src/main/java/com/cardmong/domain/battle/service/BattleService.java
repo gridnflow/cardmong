@@ -9,6 +9,7 @@ import com.cardmong.domain.card.entity.UserCard;
 import com.cardmong.domain.deck.entity.Deck;
 import com.cardmong.domain.deck.entity.DeckCard;
 import com.cardmong.domain.deck.repository.DeckRepository;
+import com.cardmong.domain.ranking.service.LeaderboardService;
 import com.cardmong.domain.user.entity.User;
 import com.cardmong.domain.user.entity.UserStats;
 import com.cardmong.domain.user.repository.UserRepository;
@@ -40,6 +41,7 @@ public class BattleService {
     private final DeckRepository     deckRepository;
     private final UserRepository     userRepository;
     private final UserStatsRepository userStatsRepository;
+    private final LeaderboardService leaderboardService;
     private final ObjectMapper       objectMapper;
 
     @Transactional
@@ -93,6 +95,9 @@ public class BattleService {
         stats.addExp(expGained);
         stats.addGold(goldGained);
         if (attackerWon) stats.recordWin(WIN_RATING); else stats.recordLose(-LOSE_RATING);
+
+        // 변경된 레이팅을 Redis 리더보드에 반영 (ZADD는 멱등)
+        leaderboardService.updateScore(attackerUserId, stats.getRatingPoint());
 
         return new BattleResultResponse(battle.getId(), result.outcome(),
                 result.durationTicks(), ratingChange, expGained, goldGained, result.events());

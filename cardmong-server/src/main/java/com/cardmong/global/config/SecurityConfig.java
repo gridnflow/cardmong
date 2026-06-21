@@ -29,6 +29,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/v1/auth/**",
+                                "/v1/ranking/top",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**"
                         ).permitAll()
