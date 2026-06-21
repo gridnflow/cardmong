@@ -87,11 +87,8 @@ namespace Cardmong.Game
 
         private bool _busy;
         private bool _continueBattle;   // 공격 소진 후 같은 적과 이어 싸우는 중
-        private bool _enemyAttacking;
         private float _enemyHit;
         private float _playerHurt;
-        private float _enemyAtkTimer;
-        private float _enemyAtkInterval;
 
         private AudioSource _audio;
         private AudioClip[] _elemSfx;
@@ -180,16 +177,6 @@ namespace Cardmong.Game
             {
                 _playerHpRt.anchoredPosition = _playerHpBasePos;
             }
-
-            if (!_busy && !_enemyAttacking)
-            {
-                _enemyAtkTimer -= Time.deltaTime;
-                if (_enemyAtkTimer <= 0f)
-                {
-                    _enemyAtkTimer = _enemyAtkInterval;
-                    StartCoroutine(EnemyAttack());
-                }
-            }
         }
 
         private void StartRun()
@@ -210,7 +197,6 @@ namespace Cardmong.Game
                     Destroy(_phaseRoot.GetChild(i).gameObject);
             _taps.Clear();
             _busy = false;
-            _enemyAttacking = false;
             _enemyHit = 0f;
             _playerHurt = 0f;
             _shake = 0f;
@@ -395,9 +381,6 @@ namespace Cardmong.Game
             _attackText = NewText("AT", _phaseRoot, $"ATTACKS LEFT  {_attacksLeft}", 30, new Color(1f, 0.8f, 0.3f));
             Anchor(_attackText.rectTransform, new Vector2(0.5f, 0f), new Vector2(0, 500), new Vector2(900, 42));
 
-            _enemyAtkInterval = Mathf.Max(1.4f, 3.2f - _stage * 0.15f);
-            _enemyAtkTimer = _enemyAtkInterval + 0.8f;
-
             if (cont) { _enemyRt.localScale = Vector3.one; _busy = false; }
             else StartCoroutine(EnemySpawn());
         }
@@ -465,7 +448,7 @@ namespace Cardmong.Game
             if (token) Destroy(token.gameObject);
 
             if (!_busy && _attacksLeft <= 0 && _enemyHp > 0)
-                StartCoroutine(OutOfAttacksRoutine());
+                StartCoroutine(EnemyTurn());
         }
 
         private void DamageEnemy(Archetype a)
@@ -512,28 +495,38 @@ namespace Cardmong.Game
             EnterDraft();
         }
 
-        private IEnumerator OutOfAttacksRoutine()
+        // 내 3회 공격이 끝나면 적이 3회 반격하는 턴.
+        private IEnumerator EnemyTurn()
         {
             _busy = true;
-            var msg = NewText("OOA", _phaseRoot, "ENEMY SURVIVED!\npick a new hand", 52, new Color(1f, 0.7f, 0.4f));
-            msg.fontStyle = FontStyles.Bold;
-            Anchor(msg.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(950, 150));
-            yield return new WaitForSeconds(1.1f);
-            _continueBattle = true;   // 같은 적과 이어서 (적 HP 유지)
+            if (_attackText != null) _attackText.text = "ENEMY TURN";
+            yield return new WaitForSeconds(0.4f);
+
+            for (int i = 0; i < 3 && _playerHp > 0; i++)
+            {
+                yield return EnemyAttackOnce();
+                yield return new WaitForSeconds(0.2f);
+            }
+
+            if (_playerHp <= 0)
+            {
+                EnterGameOver("HP DEPLETED");
+                yield break;
+            }
+
+            _continueBattle = true;   // 같은 적과 이어서 (적 HP 유지) → 카드 재선택
             EnterLoadout();
         }
 
         // -------------------------------------------------------- enemy attacks
 
-        private IEnumerator EnemyAttack()
+        // 적의 단일 공격(카드 공개 → 몬스터가 플레이어에게 날아가 타격).
+        private IEnumerator EnemyAttackOnce()
         {
-            if (_busy) yield break;
-            _enemyAttacking = true;
-
             Archetype a = Types[Random.Range(0, Types.Length)];
             RectTransform card = SpawnEnemyCard(a);
-            yield return ScalePop(card, Vector3.zero, Vector3.one, 0.18f, true);
-            yield return new WaitForSeconds(0.3f);
+            yield return ScalePop(card, Vector3.zero, Vector3.one, 0.16f, true);
+            yield return new WaitForSeconds(0.2f);
 
             var token = NewImage("EToken", _phaseRoot, a.Color);
             AddFace(token.rectTransform, 120f / MonsterBase);
@@ -553,12 +546,9 @@ namespace Cardmong.Game
                 yield return null;
             }
 
-            if (!_busy)
-            {
-                PlayEffect(a.Element, CanvasPoint(_playerHpRt) + new Vector2(0, 60));
-                Sfx(a.Element);
-                DamagePlayer(a);
-            }
+            PlayEffect(a.Element, CanvasPoint(_playerHpRt) + new Vector2(0, 60));
+            Sfx(a.Element);
+            DamagePlayer(a);
 
             t = 0f;
             const float durBack = 0.16f;
@@ -574,7 +564,6 @@ namespace Cardmong.Game
 
             yield return ScalePop(card, Vector3.one, Vector3.zero, 0.14f, false);
             if (card) Destroy(card.gameObject);
-            _enemyAttacking = false;
         }
 
         private void DamagePlayer(Archetype a)
@@ -587,12 +576,7 @@ namespace Cardmong.Game
             if (_audio != null) _audio.PlayOneShot(_sfxHit);
             FloatNumber("-" + dmg, 60, new Color(1f, 0.45f, 0.45f),
                         CanvasPoint(_playerHpRt) + new Vector2(0, 70));
-
-            if (_playerHp <= 0)
-            {
-                _enemyAttacking = false;
-                EnterGameOver("HP DEPLETED");
-            }
+            // 게임오버 판정은 EnemyTurn이 각 공격 후 처리한다.
         }
 
         private RectTransform SpawnEnemyCard(Archetype a)
