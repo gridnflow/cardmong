@@ -17,8 +17,8 @@ namespace Cardmong.UI.Battle
             gameObject.SetActive(true);
 
             resultText.text      = result.Result == "WIN" ? "Victory!" : "Defeat";
-            expRewardText.text   = $"+{result.Rewards.Exp} EXP";
-            goldRewardText.text  = $"+{result.Rewards.Gold} Gold";
+            expRewardText.text   = $"+{result.ExpGained} EXP";
+            goldRewardText.text  = $"+{result.GoldGained} Gold";
             ratingChangeText.text = result.RatingChange >= 0
                 ? $"+{result.RatingChange}"
                 : $"{result.RatingChange}";

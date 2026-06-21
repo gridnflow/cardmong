@@ -24,9 +24,19 @@ namespace Cardmong.UI.Deck
         private async void Start()
         {
             LoadingOverlay.Show();
-            _myCards = await CardApi.GetMyCards();
-            LoadingOverlay.Hide();
-            RefreshDeckSlots();
+            try
+            {
+                _myCards = await CardApi.GetMyCards();
+                RefreshDeckSlots();
+            }
+            catch (System.Exception e)
+            {
+                ToastMessage.Show($"카드 로드 실패: {e.Message}");
+            }
+            finally
+            {
+                LoadingOverlay.Hide();
+            }
         }
 
         public void OnCardClicked(UserCardDto card)
@@ -79,9 +89,19 @@ namespace Cardmong.UI.Deck
             }
 
             LoadingOverlay.Show();
-            await DeckApi.CreateDeck("내 덱", _selectedCards.Select(c => c.UserCardId).ToList());
-            LoadingOverlay.Hide();
-            ToastMessage.Show("덱이 저장되었습니다.");
+            try
+            {
+                await DeckApi.CreateDeck("내 덱", _selectedCards.Select(c => c.UserCardId).ToList());
+                ToastMessage.Show("덱이 저장되었습니다.");
+            }
+            catch (System.Exception e)
+            {
+                ToastMessage.Show($"덱 저장 실패: {e.Message}");
+            }
+            finally
+            {
+                LoadingOverlay.Hide();
+            }
         }
     }
 }

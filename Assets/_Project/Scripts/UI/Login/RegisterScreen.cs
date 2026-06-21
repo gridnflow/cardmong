@@ -29,23 +29,32 @@ namespace Cardmong.UI.Login
             }
 
             LoadingOverlay.Show();
-
-            var result = await AuthApi.Register(new RegisterRequest
+            try
             {
-                Email    = email,
-                Nickname = nickname,
-                Password = password
-            });
+                var result = await AuthApi.Register(new RegisterRequest
+                {
+                    Email    = email,
+                    Nickname = nickname,
+                    Password = password
+                });
 
-            SessionData.Instance.SetSession(
-                result.AccessToken,
-                result.RefreshToken,
-                result.UserId,
-                result.Nickname
-            );
+                SessionData.Instance.SetSession(
+                    result.AccessToken,
+                    result.RefreshToken,
+                    result.UserId,
+                    result.Nickname
+                );
 
-            LoadingOverlay.Hide();
-            SceneLoader.Load(SceneLoader.Lobby);
+                SceneLoader.Load(SceneLoader.Lobby);
+            }
+            catch (System.Exception e)
+            {
+                ToastMessage.Show($"회원가입 실패: {e.Message}");
+            }
+            finally
+            {
+                LoadingOverlay.Hide();
+            }
         }
 
         public void OnClickBack() => gameObject.SetActive(false);

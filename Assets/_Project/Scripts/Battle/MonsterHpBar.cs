@@ -11,7 +11,8 @@ namespace Cardmong.Battle
 
         public void Init(int maxHp)
         {
-            _maxHp        = maxHp;
+            _maxHp = maxHp;
+            if (slider == null) return;
             slider.minValue = 0;
             slider.maxValue = maxHp;
             slider.value    = maxHp;
@@ -19,6 +20,7 @@ namespace Cardmong.Battle
 
         public void UpdateHp(int currentHp)
         {
+            if (slider == null) return;
             slider.value = currentHp;
         }
     }

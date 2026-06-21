@@ -1,5 +1,3 @@
-using Cardmong.Data;
-
 namespace Cardmong.Data
 {
     public class SessionData

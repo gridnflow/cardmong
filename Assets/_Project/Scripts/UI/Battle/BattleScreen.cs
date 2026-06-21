@@ -2,6 +2,7 @@ using UnityEngine;
 using TMPro;
 using Cardmong.Battle;
 using Cardmong.Network;
+using Cardmong.Data;
 using Cardmong.UI.Common;
 
 namespace Cardmong.UI.Battle
@@ -16,21 +17,30 @@ namespace Cardmong.UI.Battle
         private async void Start()
         {
             LoadingOverlay.Show();
+            try
+            {
+                int deckId = SessionData.Instance.SelectedDeckId > 0 ? SessionData.Instance.SelectedDeckId : 1;
+                var result = await BattleApi.StartBattle(deckId);
 
-            // 대표 덱 ID는 SessionData에서 가져옴 (0이면 첫 번째 덱으로 가정)
-            int deckId = SessionData.Instance.SelectedDeckId > 0 ? SessionData.Instance.SelectedDeckId : 1;
-            var result = await BattleApi.StartBattle(deckId);
-
-            LoadingOverlay.Hide();
-
-            director.OnBattleFinished += ShowResult;
-            director.StartPlayback(result);
+                director.OnBattleFinished += ShowResult;
+                director.StartPlayback(result);
+            }
+            catch (System.Exception e)
+            {
+                ToastMessage.Show($"배틀 시작 실패: {e.Message}");
+            }
+            finally
+            {
+                LoadingOverlay.Hide();
+            }
         }
 
         private void ShowResult(string result)
         {
             resultPanel.SetActive(true);
-            resultText.text = result == "WIN" ? "승리!" : "패배...";
+            resultText.text = result == "WIN" ? "승리!" : (result == "DRAW" ? "무승부" : "패배...");
+            if (rewardText != null)
+                rewardText.text = "";
         }
 
         public void OnClickSpeed1x() => director.SetSpeed(1f);

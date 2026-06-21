@@ -32,7 +32,7 @@ namespace Cardmong.Battle
                 if (spriteRenderer.sprite == null)
                     spriteRenderer.sprite = PlaceholderSprite.Get((int)(userCardId % RoleColors.Length));
 
-                spriteRenderer.color   = RoleColors[userCardId % RoleColors.Length];
+                spriteRenderer.color   = RoleColors[(int)(userCardId % RoleColors.Length)];
                 spriteRenderer.flipX   = flipX;
             }
         }
