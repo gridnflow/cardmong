@@ -3,7 +3,8 @@ package com.cardmong.domain.battle.engine.ai;
 import com.cardmong.domain.battle.engine.BattleContext;
 import com.cardmong.domain.battle.engine.BattleContext.TickEvent;
 import com.cardmong.domain.battle.engine.BattleMonster;
-import com.cardmong.domain.battle.engine.DamageCalculator;
+import com.cardmong.domain.battle.engine.CombatResolver;
+import com.cardmong.domain.battle.engine.StatusEffect;
 
 import java.util.Comparator;
 import java.util.List;
@@ -15,16 +16,23 @@ public class SupportAI implements MonsterAI {
         List<BattleMonster> allies = ctx.getAlliesOf(self).stream()
                 .filter(a -> a.isAlive() && a != self).toList();
 
-        // Heal lowest-HP ally if skill ready
+        // Heal lowest-HP ally if skill ready, and grant a regen over time
         if (self.canUseSkill() && !allies.isEmpty()) {
             BattleMonster target = allies.stream()
                     .min(Comparator.comparingDouble(BattleMonster::getHpPercent))
                     .orElseThrow();
+
             int healAmt = (int) (self.getAttack() * 0.8);
             target.heal(healAmt);
-            self.resetSkillCooldown(6);
             ctx.addEvent(new TickEvent("HEAL", self.getUserCardId(),
                     target.getUserCardId(), healAmt, "group_heal", ctx.getCurrentTick()));
+
+            int regen = Math.max(1, (int) (self.getAttack() * 0.2));
+            target.applyStatus(StatusEffect.Type.REGEN, 3, regen);
+            ctx.addEvent(new TickEvent("STATUS", self.getUserCardId(),
+                    target.getUserCardId(), regen, "regen", ctx.getCurrentTick()));
+
+            self.resetSkillCooldown(6);
             return;
         }
 
@@ -36,12 +44,6 @@ public class SupportAI implements MonsterAI {
         BattleMonster target = enemies.stream()
                 .min(Comparator.comparingDouble(BattleMonster::getHpPercent))
                 .orElseThrow();
-        int dmg = DamageCalculator.calculate(self, target);
-        target.takeDamage(dmg);
-        ctx.addEvent(new TickEvent("ATTACK", self.getUserCardId(),
-                target.getUserCardId(), dmg, null, ctx.getCurrentTick()));
-        if (!target.isAlive())
-            ctx.addEvent(new TickEvent("DEATH", null,
-                    target.getUserCardId(), 0, null, ctx.getCurrentTick()));
+        CombatResolver.basicAttack(self, target, ctx);
     }
 }

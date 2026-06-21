@@ -24,6 +24,8 @@ public class BattleEngine {
 
             for (BattleMonster m : all) {
                 if (!m.isAlive()) continue;
+                m.tickStatuses(ctx);          // 도트/회복 등 지속효과 먼저 처리
+                if (!m.isAlive()) continue;   // 도트로 사망했으면 행동 생략
                 m.tickCooldowns();
                 if (m.isStunned()) continue;
 
