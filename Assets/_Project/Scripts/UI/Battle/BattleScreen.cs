@@ -17,8 +17,9 @@ namespace Cardmong.UI.Battle
         {
             LoadingOverlay.Show();
 
-            // 대표 덱 ID는 실제로는 SessionData 또는 이전 씬에서 전달받아야 함
-            var result = await BattleApi.StartBattle("PVE", 1);
+            // 대표 덱 ID는 SessionData에서 가져옴 (0이면 첫 번째 덱으로 가정)
+            int deckId = SessionData.Instance.SelectedDeckId > 0 ? SessionData.Instance.SelectedDeckId : 1;
+            var result = await BattleApi.StartBattle(deckId);
 
             LoadingOverlay.Hide();
 

@@ -13,7 +13,11 @@ namespace Cardmong.Network
     {
         public static ApiClient Instance { get; } = new ApiClient();
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private const string BaseUrl = "http://localhost:8080/v1";
+#else
         private const string BaseUrl = "https://api.cardmong.com/v1";
+#endif
 
         private ApiClient() { }
 

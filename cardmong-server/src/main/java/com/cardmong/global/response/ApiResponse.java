@@ -22,5 +22,9 @@ public class ApiResponse<T> {
         return new ApiResponse<>(false, null, new ErrorInfo(code.name(), code.getMessage()));
     }
 
+    public static ApiResponse<?> failRaw(String code, String message) {
+        return new ApiResponse<>(false, null, new ErrorInfo(code, message));
+    }
+
     public record ErrorInfo(String code, String message) {}
 }

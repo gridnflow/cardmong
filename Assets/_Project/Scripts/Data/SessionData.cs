@@ -6,10 +6,11 @@ namespace Cardmong.Data
     {
         public static SessionData Instance { get; } = new SessionData();
 
-        public string AccessToken  { get; private set; }
-        public string RefreshToken { get; private set; }
-        public long   UserId       { get; private set; }
-        public string Nickname     { get; private set; }
+        public string AccessToken    { get; private set; }
+        public string RefreshToken   { get; private set; }
+        public long   UserId         { get; private set; }
+        public string Nickname       { get; private set; }
+        public int    SelectedDeckId { get; set; } = 0;
 
         private SessionData()
         {

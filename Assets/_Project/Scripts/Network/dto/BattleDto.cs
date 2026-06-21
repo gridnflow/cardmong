@@ -5,30 +5,33 @@ namespace Cardmong.Network.Dto
     [System.Serializable]
     public class BattleStartRequest
     {
-        public string BattleType { get; set; }
-        public int    DeckId     { get; set; }
+        public int   DeckId          { get; set; }
+        public long? OpponentUserId  { get; set; }
     }
 
     [System.Serializable]
     public class BattleResultDto
     {
-        public long   BattleId     { get; set; }
-        public string Result       { get; set; }  // WIN / LOSE
-        public int    DurationMs   { get; set; }
-        public int    RatingChange { get; set; }
-        public RewardDto Rewards   { get; set; }
-        public List<BattleLogDto> Logs { get; set; }
+        public long   BattleId      { get; set; }
+        public string Outcome       { get; set; }  // ATTACKER_WIN / DEFENDER_WIN / DRAW
+        public int    DurationTicks { get; set; }
+        public int    RatingChange  { get; set; }
+        public int    ExpGained     { get; set; }
+        public int    GoldGained    { get; set; }
+        public List<BattleLogDto> BattleLog { get; set; }
+
+        public string Result => Outcome == "ATTACKER_WIN" ? "WIN" : (Outcome == "DRAW" ? "DRAW" : "LOSE");
     }
 
     [System.Serializable]
     public class BattleLogDto
     {
-        public int    TimeMs       { get; set; }
-        public string EventType    { get; set; }
-        public int    ActorCardId  { get; set; }
-        public int?   TargetCardId { get; set; }
-        public int?   Value        { get; set; }
-        public Dictionary<string, object> ExtraData { get; set; }
+        public string Type     { get; set; }  // ATTACK / SKILL / HEAL / STUN / DEATH
+        public long?  SourceId { get; set; }
+        public long?  TargetId { get; set; }
+        public int    Value    { get; set; }
+        public string Extra    { get; set; }
+        public int    Tick     { get; set; }
     }
 
     [System.Serializable]
