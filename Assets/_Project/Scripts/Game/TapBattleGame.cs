@@ -96,6 +96,15 @@ namespace Cardmong.Game
         private float _enemyAtkInterval;
         private Color _enemyColor;
 
+        private AudioSource _audio;
+        private AudioClip[] _elemSfx;
+        private AudioClip _sfxHit;
+        private AudioClip _sfxDeath;
+        private AudioClip _sfxGameOver;
+        private float _shake;
+        private float _shakeMag;
+        private const float ShakeDur = 0.28f;
+
         private void Start()
         {
             Application.targetFrameRate = 60;
@@ -106,6 +115,7 @@ namespace Cardmong.Game
                                  new Vector2(0.5f, 0.5f), 100f);
 
             BuildUI();
+            BuildAudio();
             _playerHp = PlayerMaxHp;
             UpdatePlayerHpText();
             NewEnemy(instant: true);
@@ -115,6 +125,16 @@ namespace Cardmong.Game
         {
             var p = Pointer.current;
             bool pressed = p != null && p.press.wasPressedThisFrame;
+
+            // 화면 흔들림
+            if (_shake > 0f)
+            {
+                _shake -= Time.deltaTime;
+                float sk = Mathf.Clamp01(_shake / ShakeDur);
+                Vector2 o = Random.insideUnitCircle * _shakeMag * sk;
+                _canvasRt.localPosition = new Vector3(o.x, o.y, 0f);
+                if (_shake <= 0f) { _shakeMag = 0f; _canvasRt.localPosition = Vector3.zero; }
+            }
 
             if (_gameOver)
             {
@@ -212,6 +232,7 @@ namespace Cardmong.Game
             }
 
             PlayEffect(c.Element, CanvasPoint(_enemyRt));
+            Sfx(c.Element);
             DamageEnemy(c.Atk);
 
             t = 0f;
@@ -237,6 +258,7 @@ namespace Cardmong.Game
             _hp = Mathf.Max(0, _hp - dmg);
             UpdateHpText();
             _enemyHit = 0.14f;
+            Shake(crit ? 26f : 10f);
             FloatNumber((crit ? "CRIT " : "") + dmg, crit ? 80 : 56,
                         crit ? new Color(1f, 0.55f, 0.15f) : Color.white,
                         CanvasPoint(_enemyRt) + new Vector2(0, 130));
@@ -280,6 +302,7 @@ namespace Cardmong.Game
             if (!_gameOver && !_busy)
             {
                 PlayEffect(a.Element, CanvasPoint(_playerHpRt) + new Vector2(0, 60));
+                Sfx(a.Element);
                 DamagePlayer(a);
             }
 
@@ -306,6 +329,8 @@ namespace Cardmong.Game
             _playerHp = Mathf.Max(0, _playerHp - dmg);
             UpdatePlayerHpText();
             _playerHurt = 0.3f;
+            Shake(16f);
+            if (_audio != null) _audio.PlayOneShot(_sfxHit);
             FloatNumber("-" + dmg, 60, new Color(1f, 0.45f, 0.45f),
                         CanvasPoint(_playerHpRt) + new Vector2(0, 70));
 
@@ -387,6 +412,8 @@ namespace Cardmong.Game
             _busy = true;
             _kills++;
             _killText.text = $"KILLS  {_kills}";
+            Shake(22f);
+            if (_audio != null) _audio.PlayOneShot(_sfxDeath);
 
             float t = 0f;
             Vector3 s0 = _enemyRt.localScale;
@@ -410,6 +437,7 @@ namespace Cardmong.Game
             _gameOver = true;
             _gameOverInfo.text = $"GAME OVER\nKILLS  {_kills}\n\ntap to retry";
             _gameOverPanel.SetActive(true);
+            if (_audio != null) _audio.PlayOneShot(_sfxGameOver);
         }
 
         private void Restart()
@@ -549,6 +577,74 @@ namespace Cardmong.Game
             Destroy(img.gameObject);
         }
 
+        // -------------------------------------------------- 화면 흔들림 / 사운드
+
+        private void Shake(float magnitude)
+        {
+            _shakeMag = Mathf.Max(_shakeMag, magnitude);
+            _shake = ShakeDur;
+        }
+
+        private void Sfx(Element e)
+        {
+            if (_audio != null && _elemSfx != null)
+                _audio.PlayOneShot(_elemSfx[(int)e]);
+        }
+
+        private void BuildAudio()
+        {
+            _audio = gameObject.AddComponent<AudioSource>();
+            _audio.playOnAwake = false;
+            _audio.volume = 0.6f;
+
+            _elemSfx = new AudioClip[5];
+            _elemSfx[(int)Element.Fire]      = Noise(0.40f, 6f, 0.30f, 0.6f);
+            _elemSfx[(int)Element.Water]     = Tone(1100f, 360f, 0.22f, 9f, 0.5f);
+            _elemSfx[(int)Element.Earth]     = Tone(150f, 60f, 0.28f, 7f, 0.45f);
+            _elemSfx[(int)Element.Lightning] = Noise(0.26f, 11f, 0.92f, 0.7f);
+            _elemSfx[(int)Element.Wind]      = Noise(0.50f, 3f, 0.14f, 0.45f);
+
+            _sfxHit      = Noise(0.14f, 20f, 0.60f, 0.7f);
+            _sfxDeath    = Tone(520f, 80f, 0.50f, 5f, 0f);
+            _sfxGameOver = Tone(320f, 60f, 0.90f, 3f, 0f);
+        }
+
+        private static AudioClip Noise(float dur, float decay, float lowpass, float gain)
+        {
+            const int rate = 44100;
+            int n = Mathf.Max(1, (int)(rate * dur));
+            var data = new float[n];
+            float prev = 0f;
+            for (int i = 0; i < n; i++)
+            {
+                float t = (float)i / rate;
+                float w = Random.Range(-1f, 1f);
+                prev = Mathf.Lerp(prev, w, lowpass);
+                data[i] = prev * Mathf.Exp(-decay * t) * gain;
+            }
+            var c = AudioClip.Create("noise", n, 1, rate, false);
+            c.SetData(data, 0);
+            return c;
+        }
+
+        private static AudioClip Tone(float f0, float f1, float dur, float decay, float wob)
+        {
+            const int rate = 44100;
+            int n = Mathf.Max(1, (int)(rate * dur));
+            var data = new float[n];
+            double phase = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float t = (float)i / rate;
+                float f = Mathf.Lerp(f0, f1, t / dur) + (wob > 0f ? Mathf.Sin(t * 40f) * 30f * wob : 0f);
+                phase += 6.283185307 * f / rate;
+                data[i] = (float)System.Math.Sin(phase) * Mathf.Exp(-decay * t) * 0.6f;
+            }
+            var c = AudioClip.Create("tone", n, 1, rate, false);
+            c.SetData(data, 0);
+            return c;
+        }
+
         // -------------------------------------------------------------- UI build
 
         private void BuildUI()
@@ -560,7 +656,12 @@ namespace Cardmong.Game
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1080, 1920);
             scaler.matchWidthOrHeight = 0f;
-            _canvasRt = canvasGo.GetComponent<RectTransform>();
+
+            // 흔들림을 위해 모든 UI를 담는 콘텐츠 루트(콘텐츠를 흔든다)
+            var content = new GameObject("Content", typeof(RectTransform));
+            content.transform.SetParent(canvasGo.transform, false);
+            _canvasRt = content.GetComponent<RectTransform>();
+            Stretch(_canvasRt);
 
             var bg = NewImage("BG", _canvasRt, new Color(0.10f, 0.11f, 0.18f));
             Stretch(bg.rectTransform);
