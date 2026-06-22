@@ -42,3 +42,7 @@ cardmong-server/.gradle/
 cardmong-server/build/
 cardmong-server/out/
 *.class
+
+# 스테이지 배경 이미지 (용량 큼 — 로컬에만 유지, README는 추적)
+Assets/_Project/Resources/Backgrounds/bg_*.png
+Assets/_Project/Resources/Backgrounds/bg_*.png.meta
