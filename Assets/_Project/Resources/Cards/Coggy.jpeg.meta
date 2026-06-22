@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 589e890602fe64d30916bb64021cf93a
+guid: ff197652ea00f4694bc25a83f1b71118
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 3978535868443571804
-    second: Coggy_0
+      213: -405047786410941540
+    second: Gemini_Generated_Image_7lluam7lluam7llu_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Coggy_0
+      name: Gemini_Generated_Image_7lluam7lluam7llu_0
       rect:
         serializedVersion: 2
-        x: 28
-        y: 56
-        width: 580
-        height: 874
+        x: 0
+        y: 0
+        width: 864
+        height: 1232
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: c56babc0b49963730800000000000000
-      internalID: 3978535868443571804
+      spriteID: c93eaed2f2bf06af0800000000000000
+      internalID: -405047786410941540
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Coggy_0: 3978535868443571804
+      Gemini_Generated_Image_7lluam7lluam7llu_0: -405047786410941540
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
