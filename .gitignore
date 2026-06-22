@@ -49,3 +49,4 @@ Assets/_Project/Resources/Backgrounds/bg_*.png.meta
 
 # 비활성화한 배경(로더 경로 밖에 보관 — 로컬 전용)
 Assets/_Project/DisabledBackgrounds/
+Assets/_Project/DisabledBackgrounds.meta
