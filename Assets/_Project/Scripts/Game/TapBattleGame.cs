@@ -54,6 +54,8 @@ namespace Cardmong.Game
         private Sprite _box;
         private RectTransform _canvasRt;   // 흔들리는 콘텐츠 루트
         private RectTransform _phaseRoot;  // 페이즈마다 갈아끼우는 UI 루트
+        private Image _bgImage;            // 스테이지 배경
+        private readonly List<Sprite> _backgrounds = new();
         private Phase _phase;
 
         // 런 상태(전투 사이 유지)
@@ -114,8 +116,27 @@ namespace Cardmong.Game
                                  new Vector2(0.5f, 0.5f), 100f);
 
             BuildRoot();
+            LoadBackgrounds();
             BuildAudio();
             StartRun();
+        }
+
+        // Resources/Backgrounds 의 모든 텍스처를 이름순으로 불러와 스프라이트로 만든다.
+        private void LoadBackgrounds()
+        {
+            var texs = Resources.LoadAll<Texture2D>("Backgrounds");
+            System.Array.Sort(texs, (x, y) => string.CompareOrdinal(x.name, y.name));
+            foreach (var tex in texs)
+                _backgrounds.Add(Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
+                                               new Vector2(0.5f, 0.5f), 100f));
+        }
+
+        // 현재 스테이지에 맞는 배경으로 교체(배경이 없으면 기본 어두운 색 유지).
+        private void ApplyStageBackground()
+        {
+            if (_bgImage == null || _backgrounds.Count == 0) return;
+            _bgImage.sprite = _backgrounds[_stage % _backgrounds.Count];
+            _bgImage.color = Color.white;
         }
 
         private void Update()
@@ -220,6 +241,7 @@ namespace Cardmong.Game
         {
             ClearPhase();
             _phase = Phase.Loadout;
+            ApplyStageBackground();
 
             var title = NewText("Title", _phaseRoot, $"STAGE {_stage + 1}", 52, new Color(1f, 0.85f, 0.2f));
             title.fontStyle = FontStyles.Bold;
@@ -306,6 +328,7 @@ namespace Cardmong.Game
         {
             ClearPhase();
             _phase = Phase.Battle;
+            ApplyStageBackground();
 
             bool cont = _continueBattle;
             _continueBattle = false;
@@ -606,6 +629,7 @@ namespace Cardmong.Game
         {
             ClearPhase();
             _phase = Phase.Draft;
+            ApplyStageBackground();
 
             int drafted = Random.Range(0, Types.Length);
             _collection[drafted]++;
@@ -916,8 +940,8 @@ namespace Cardmong.Game
             _canvasRt = content.GetComponent<RectTransform>();
             Stretch(_canvasRt);
 
-            var bg = NewImage("BG", _canvasRt, new Color(0.10f, 0.11f, 0.18f));
-            Stretch(bg.rectTransform);
+            _bgImage = NewImage("BG", _canvasRt, new Color(0.10f, 0.11f, 0.18f));
+            Stretch(_bgImage.rectTransform);
 
             var phase = new GameObject("Phase", typeof(RectTransform));
             phase.transform.SetParent(content.transform, false);
