@@ -977,6 +977,10 @@ namespace Cardmong.Game
             _bgImage = NewImage("BG", _canvasRt, new Color(0.10f, 0.11f, 0.18f));
             Stretch(_bgImage.rectTransform);
 
+            // 배경 위에 반투명 검정 막을 깔아 글자 가독성 확보(BG 위, Phase 아래).
+            var scrim = NewImage("Scrim", _canvasRt, new Color(0f, 0f, 0f, 0.45f));
+            Stretch(scrim.rectTransform);
+
             var phase = new GameObject("Phase", typeof(RectTransform));
             phase.transform.SetParent(content.transform, false);
             _phaseRoot = phase.GetComponent<RectTransform>();
