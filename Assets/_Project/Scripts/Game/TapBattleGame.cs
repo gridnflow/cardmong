@@ -29,13 +29,14 @@ namespace Cardmong.Game
             { Name = n; Element = el; Color = c; Atk = atk; }
         }
 
+        // 이름이 Resources/Cards/<Name>.png 와 일치하면 카드 면 전체에 그 아트를 쓴다.
         private static readonly Archetype[] Types =
         {
-            new Archetype("Ember",   Element.Fire,      new Color(0.94f, 0.45f, 0.24f), 20),
-            new Archetype("Splash",  Element.Water,     new Color(0.34f, 0.66f, 0.95f), 16),
-            new Archetype("Boulder", Element.Earth,     new Color(0.66f, 0.52f, 0.36f), 30),
-            new Archetype("Spark",   Element.Lightning, new Color(0.96f, 0.85f, 0.30f), 14),
-            new Archetype("Gale",    Element.Wind,      new Color(0.45f, 0.82f, 0.62f), 18),
+            new Archetype("Ember",      Element.Fire,      new Color(0.94f, 0.45f, 0.24f), 20),
+            new Archetype("Glimmer",    Element.Water,     new Color(0.55f, 0.80f, 0.95f), 15),
+            new Archetype("Sproutling", Element.Earth,     new Color(0.45f, 0.72f, 0.38f), 20),
+            new Archetype("Coggy",      Element.Lightning, new Color(0.85f, 0.62f, 0.32f), 22),
+            new Archetype("Whisp",      Element.Wind,      new Color(0.62f, 0.45f, 0.85f), 18),
         };
 
         private static readonly Color[] EnemyPalette =
@@ -56,6 +57,7 @@ namespace Cardmong.Game
         private RectTransform _phaseRoot;  // 페이즈마다 갈아끼우는 UI 루트
         private Image _bgImage;            // 스테이지 배경
         private readonly List<Sprite> _backgrounds = new();
+        private readonly Dictionary<string, Sprite> _cardArt = new();  // 카드명 -> 아트
         private Phase _phase;
 
         // 런 상태(전투 사이 유지)
@@ -117,6 +119,7 @@ namespace Cardmong.Game
 
             BuildRoot();
             LoadBackgrounds();
+            LoadCardArt();
             BuildAudio();
             StartRun();
         }
@@ -129,6 +132,15 @@ namespace Cardmong.Game
             foreach (var tex in texs)
                 _backgrounds.Add(Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
                                                new Vector2(0.5f, 0.5f), 100f));
+        }
+
+        // Resources/Cards 의 텍스처를 이름(=카드명)으로 매핑해 둔다. 없으면 절차적 카드로 폴백.
+        private void LoadCardArt()
+        {
+            var texs = Resources.LoadAll<Texture2D>("Cards");
+            foreach (var tex in texs)
+                _cardArt[tex.name] = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
+                                                   new Vector2(0.5f, 0.5f), 100f);
         }
 
         // 현재 스테이지에 맞는 배경으로 교체(배경이 없으면 기본 어두운 색 유지).
@@ -701,6 +713,10 @@ namespace Cardmong.Game
 
         private Image BuildCard(RectTransform parent, Archetype a, Vector2 pos, Vector2 size, Color tint, string footer)
         {
+            // 임포트한 카드 아트가 있으면 카드 면 전체를 그 그림으로 그린다.
+            if (_cardArt.TryGetValue(a.Name, out var art))
+                return BuildArtCard(parent, art, pos, size, footer);
+
             var panel = NewImage("Card", parent, tint);
             var rt = panel.rectTransform;
             Anchor(rt, new Vector2(0.5f, 0.5f), pos, size);
@@ -726,6 +742,24 @@ namespace Cardmong.Game
                 var f = NewText("Foot", rt, footer, 24 * s, new Color(1, 1, 1, 0.9f));
                 f.fontStyle = FontStyles.Bold;
                 Anchor(f.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, 26 * s), new Vector2(size.x * 1.1f, 32 * s));
+            }
+            return panel;
+        }
+
+        // 카드 면 전체를 임포트한 아트로 그린다(이름/속성/ATK는 그림에 이미 그려져 있음).
+        private Image BuildArtCard(RectTransform parent, Sprite art, Vector2 pos, Vector2 size, string footer)
+        {
+            var panel = NewImage("CardArt", parent, Color.white);
+            panel.sprite = art;
+            panel.preserveAspect = true;
+            Anchor(panel.rectTransform, new Vector2(0.5f, 0.5f), pos, size);
+
+            if (footer != null)
+            {
+                float s = size.x / 220f;
+                var f = NewText("Foot", panel.rectTransform, footer, 24 * s, new Color(1, 1, 1, 0.95f));
+                f.fontStyle = FontStyles.Bold;
+                Anchor(f.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, 28 * s), new Vector2(size.x * 1.2f, 36 * s));
             }
             return panel;
         }
